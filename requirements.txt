@@ -9,3 +9,5 @@ pytest>=8.0
 # Optionnel (non installé par défaut) :
 #   openai-whisper   -> transcription ASR de fichiers audio (viz/circle_trace.py --audio)
 #                       pip install openai-whisper  (nécessite aussi ffmpeg)
+#   torch             -> expériences utilisant un modèle PyTorch; le banc fourni
+#                       fonctionne sans torch avec une régression ridge numpy.

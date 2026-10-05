@@ -7,7 +7,7 @@ est en français.
 ## Arborescence
 
 - `PROMPT.md` — prompt identique fourni à chaque IA (sections 2bis à 2quinquies : phonétique/diachronie, mots à inventer,
-  homophones, RAG Neo4j+Qdrant).
+  homophones, RAG Neo4j+Qdrant, flux continu/vision et hypothèses audio).
 - `reports/` — un rapport par IA.
 - `round2/` — critiques croisées et seconde passe.
 - `synthesis/` — synthèse finale.
@@ -19,6 +19,9 @@ est en français.
 - `scripts/` — `fetch_phonetic_dicts.py`, `fetch_etymology.py`, `build_graph.py`.
 - `graph/` — [`schema.cypher`](graph/schema.cypher) et [documentation](graph/README.md) ; `docker-compose.yml` à la racine.
 - `viz/circle_trace.py` — tracé circulaire et GIF.
+- `experiments/continuous_vs_vision/` — trajectoires, signature de chemin, baselines
+  one-hot/cercle permuté/raster/motif aléatoire et expérience de prédiction du caractère suivant.
+- `docs/ENVIRONNEMENT_EXPERIMENTAL.md` — environnement et protocole d'évaluation des modèles de code.
 - `tests/` — tests pytest.
 
 ## Ordre d'exécution
@@ -32,7 +35,13 @@ python scripts/build_graph.py --dry-run               # 4. rapport de taille san
 export NEO4J_PASSWORD='…'; docker compose up -d       # 5. Neo4j
 python scripts/build_graph.py --apply-schema --langs fr --varieties fr-FR --max-substring-len 4
 python viz/circle_trace.py --lang fr --text "écureuil" --ipa auto --out out.gif   # 6. visualisation
+python -m experiments.continuous_vs_vision.run_experiment --lang fr --output out/metrics.json
 ```
+
+Le banc utilise les dictionnaires `data/dict/<lang>.tsv` s'ils sont présents. Sinon,
+il inscrit explicitement dans ses métriques qu'il utilise un mini-corpus jouet. Le
+modèle de référence est une régression ridge numpy; PyTorch n'est pas requis. Le
+résultat est un relevé expérimental, pas une preuve ni un classement.
 
 Variantes : `--stream` (stdin, simulation du direct), `--color-by gematria`, `--step syllable` (IPA avec frontières
 explicites uniquement), `--audio fichier.wav` (ASR optionnelle via `openai-whisper`, non installé par défaut),

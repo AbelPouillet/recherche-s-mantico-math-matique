@@ -184,6 +184,113 @@ Hypothèse de travail à falsifier : « une architecture hybride (lexique embarq
 
 ---
 
+# 2sexies. Flux continu contre modèle de vision
+
+## Formalisation et lecture de la formule
+
+Pour un alphabet de `n` lettres, associer à la lettre d'indice `k` la racine de l'unité
+`ω_k = exp(2πik/n)`. Un mot `c₁…cₘ` devient une trajectoire complexe `z(t)` dont les
+points de contrôle sont `ω_index(c₁), …, ω_index(cₘ)`, reliés par interpolation
+linéaire par morceaux. Les extrémités et la convention de durée doivent être déclarées.
+
+La formule `E = ([i;-i] ∪ [1,-1])·t` est ici lue comme la croix formée des deux
+segments joignant `i` à `-i` et `1` à `-1`, mise à l'échelle par `t`. Cela décrit
+les deux axes du plan complexe pour `n = 4`; les transitions entre lettres sont
+ensuite les segments de la trajectoire définie ci-dessus. Pour `n` général, les
+lettres occupent les `n` racines et forment un cercle à `n` rayons. **Cette lecture
+est une interprétation à confirmer : si l'auteur entendait une autre opération par
+`·t`, les points de contrôle ou l'interpolation, il faut le préciser.**
+
+`t` est une frame insécable au sens de l'unité d'observation, mais son horloge dépend
+de la modalité :
+
+- **text2x** : un pas discret par lettre saisie. Échantillonner aux indices entiers
+  de frappe (unité : lettre/événement), en conservant l'ordre et les horodatages
+  monotones de saisie si la latence est mesurée. L'interpolation entre deux lettres
+  est une représentation géométrique, pas une durée physique.
+- **vision2x** : un `t` correspond au temps d'analyse d'une frame par le modèle.
+  Échantillonner le parcours aux sorties successives du modèle pour chaque frame;
+  enregistrer séparément l'horodatage d'arrivée de la frame et le temps de calcul
+  (horloge monotone, unités secondes ou millisecondes). Ne pas traiter le nombre
+  de frames comme une durée de calcul constante.
+- **audio2x** : `t_audio` est la durée moyenne d'une syllabe de l'utilisateur,
+  estimée pour chaque phrase. Détecter les noyaux syllabiques à partir de
+  l'enveloppe d'énergie, puis échantillonner aux frontières détectées en conservant
+  les horodatages audio physiques (secondes). La moyenne par phrase est une
+  estimation, pas une unité universelle.
+
+Ces horloges n'ont pas le même statut (pas discret, temps de calcul, durée physique).
+Toute comparaison doit donc contrôler et publier le débit d'information par pas,
+la quantité d'information observée, la durée totale et le budget de calcul. Sans
+ce contrôle, un avantage apparent peut seulement venir d'un échantillonnage plus dense.
+
+## Question, modèles candidats et hypothèses
+
+**Question falsifiable :** un modèle qui traite `z(t)` comme un signal continu
+comprend-il mieux la langue qu'un modèle de vision qui reçoit le GIF/raster du même
+parcours ?
+
+Candidats à comparer : signatures de chemin (intégrales itérées; la concaténation
+obéit à `S(x*y) = S(x) ⊗ S(y)`, opération correspondant à `Advance()`; référence
+bibliographique à vérifier avant citation), modèles d'espace d'état (S4/Mamba),
+Neural CDE et DFT sur le n-gone. Ces noms sont des mots-clés de recherche, pas une
+validation de leur adéquation à cette tâche; vérifier les articles, implémentations
+et références avant de les citer ou de les utiliser.
+
+Contrôles obligatoires :
+
+1. caractères one-hot (lettre → cercle est injective : même information, seul le
+   biais inductif peut expliquer un gain) ;
+2. permutation aléatoire de l'ordre des lettres sur le cercle ;
+3. vision sur image rasterisée contre flux sur coordonnées exactes, avec résolution
+   et quantité d'information contrôlées ;
+4. nombre de paramètres et budget FLOPs appariés ;
+5. motif aléatoire de même longueur.
+
+H0 : flux continu et vision n'apportent rien au-delà du one-hot. H1 : la structure
+circulaire améliore la prédiction du caractère suivant, la désambiguïsation
+d'homophones ou le retrieval. **H0 est l'attente par défaut pour le texte seul** :
+un gain plausible ne viendrait que d'une invariance par rotation ou de la comparaison
+graphique/phonétique, à mesurer sans le présupposer. Rapporter les seeds, tests de
+permutation et correction des comparaisons multiples.
+
+## Audio, articulation et « ambiance » — hypothèses à tester
+
+Les propositions suivantes ne sont pas des faits établis :
+
+- Estimer `t_audio` par phrase à partir d'un détecteur de syllabes/noyaux vocaliques
+  appliqué à l'enveloppe d'énergie. Tester les erreurs de détection et la sensibilité
+  au locuteur/bruit. L'énergie et l'intonation pourraient guider le choix des voix
+  synthétiques de référence, de leur régularité, alphabet/phonèmes et accent; définir
+  ces variables et les mesurer plutôt que supposer qu'elles améliorent la tâche.
+- Définir une variable `Art` reproductible, par exemple un vecteur de caractéristiques
+  normalisées par syllabe : précision des cibles et transitions formantiques par
+  rapport à une référence de locuteur, rapport énergie périodique/non périodique
+  (voisement/bruit), et proportion de durée voisée. Fixer les filtres, fenêtres,
+  unités, normalisation et règle d'agrégation avant l'expérience. Valider sur des
+  données déjà annotées de prononciation/articulation; identifier puis vérifier
+  réellement corpus, annotations, version, licence et protocole avant toute sélection.
+  Ne pas inventer ni présumer l'existence d'un jeu de données approprié.
+- Un LoRA « réarticulant » pourrait être déclenché lorsqu'un début de phrase est
+  mal articulé afin d'aider l'ASR à détecter la suite et à anticiper l'ambiance.
+  Évaluer contre (1) ASR standard sans LoRA, (2) ASR avec augmentation de
+  données/bruit et (3) correction par modèle de langage. Mesurer WER, latence et
+  coût du LoRA. Séparer les locuteurs et les phrases entre entraînement/test; n'utiliser
+  aucune transcription de la suite au moment de la prédiction. Mesurer les
+  hallucinations de continuation, biais d'accent et fuite de la cible.
+- Opérationnaliser « ambiance » par des étiquettes d'émotion ou de prosodie provenant
+  de corpus existants : leurs sources, labels, population, licence et limites doivent
+  être identifiés et vérifiés avant usage. À titre de ressource vérifiée pour les
+  étiquettes d'émotion, le dépôt CREMA-D décrit des clips annotés par évaluations
+  audio seules et audio-visuelles; il indique six émotions, quatre niveaux et les
+  licences ODbL/DBCL (dépôt et contenu respectivement). Cela n'en fait pas un corpus
+  d'articulation ni ne valide `Art` : vérifier l'adéquation des annotations au
+  protocole avant usage
+  ([dépôt et description](https://github.com/CheyneyComputerScience/CREMA-D)).
+  Ne pas inférer une émotion comme un fait à partir de la seule énergie.
+
+---
+
 # 3. Relations inter-langues
 
 Le projet cherche à étudier des relations entre arbres issus de différentes langues.
@@ -513,6 +620,10 @@ Comparer plusieurs niveaux de compression.
 Les n lettres de l'alphabet sont placées à égale distance sur un cercle (angle 2πk/n, n rayons). Une entrée (texte, phonèmes IPA, ou transcription ASR optionnelle) trace un parcours lettre → lettre ; chaque préfixe produit une image, d'où un GIF de la construction incrémentale, éventuellement coloré selon la valeur gématrique, avec un panneau « motif phonétique » (même construction sur les phonèmes) côte à côte.
 
 À tester, **sans présupposer qu'il y ait quoi que ce soit à apprendre** : le motif visuel a-t-il une information prédictive au-delà de baselines — lettres seules, IPA seul, motif aléatoire de même longueur ? Avec permutations et correction des comparaisons multiples (section 2bis). Voir la section « Hypothèses à tester » du `README.md`.
+
+Le banc `experiments/continuous_vs_vision/` fournit une expérience minimale distincte
+sur les caractères : il ne constitue pas une preuve sur l'audio, la vision générale
+ou la compréhension de la langue.
 
 ---
 

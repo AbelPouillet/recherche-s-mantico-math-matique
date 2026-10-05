@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest -q
+      - name: Smoke test et métriques reproductibles
+        run: |
+          python -m experiments.continuous_vs_vision.run_experiment \
+            --seed 17 --max-words 30 --permutations 10 \
+            --output /tmp/continuous-vs-vision.json
+          {
+            echo '### Smoke test continuous vs vision'
+            echo '```json'
+            cat /tmp/continuous-vs-vision.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
