@@ -87,6 +87,103 @@ Les relations ne doivent pas être supposées valides simplement parce qu'elles 
 
 ---
 
+# 2bis. Dimension phonétique et diachronique
+
+La v1 ne distingue pas la similarité **graphique** (lettres) de la similarité **sonore** (phonétique), et n'a aucun axe diachronique (évolution, emprunts, contractions). Chaque nœud/feuille de l'arbre doit donc pouvoir porter une dimension phonétique, associée à son territoire d'origine **et** aux zones côtières/de contact.
+
+Extension du nœud :
+
+    Node.phon {
+        ipa[]            // transcriptions IPA, par variété/territoire
+        syllables[]      // découpage syllabique (uniquement si la source le fournit)
+        region/dialect   // territoire d'origine ET zones côtières/de contact
+        period           // datation de la forme
+        phon_features    // traits articulatoires (voisement, lieu, mode, voyelle)
+    }
+    Edge types ajoutés (avec provenance `source` et `confidence`) :
+        - cognate(l1,l2)         // origine commune
+        - borrowing(src→dst)     // emprunt
+        - sound_change(rule)     // règle de changement phonétique
+        - contraction(rule)      // ex. es- → é-
+        - contact_blend(l1,l2)   // mélange culturel
+
+**Exemple *écureuil* / *squirrel*** (à formuler prudemment) : les deux mots sont rattachés au latin tardif *sciurus* (du grec *skíouros*) ; le français passe par l'ancien français *escurel* puis *écureuil*, et l'anglais a emprunté à l'ancien français. La contraction « es- → é- » (chute du *s* préconsonantique) est une évolution documentée du français. Le système doit **retrouver ces règles à partir de données documentées** (étymologie Wiktionnaire/EtymWordNet, listes de cognats, `scripts/fetch_etymology.py`) et les valider sur des cas connus. Il ne doit **jamais** « déduire » librement une histoire plausible : une règle sans source est refusée.
+
+Ressources du dépôt : `data/` (dictionnaires IPA téléchargés, jamais commités), `data/SOURCES.md` (sources, licences, couverture), `graph/` (schéma Neo4j), `scripts/build_graph.py`.
+
+## Hypothèses à tester
+
+- **H0** : phonétique + morphologie suffisent ; la gématrie n'apporte rien au-delà.
+- **H1** : la gématrie apporte un gain mesurable **au-dessus** des baselines H0.
+
+Avertissement : la gématrie n'a aucune raison de survivre aux changements phonétiques (les valeurs changent avec l'orthographe) ; la phonétique est le canal diachronique le plus plausible. Le benchmark doit le tester explicitement, pas le supposer.
+
+## Contrôles statistiques
+
+- Toute corrélation gématrico-sensorielle entre langues est facile à trouver par hasard (beaucoup de fonctions candidates, peu de données). Exiger des **tests de permutation** (étiquettes de mots/sens permutées, au moins 10 000 tirages) et une **correction des comparaisons multiples** (Bonferroni/Holm ou FDR de Benjamini–Hochberg, en déclarant le nombre total de tests essayés).
+- Le « sensoriel » doit être **opérationnalisé** par des normes psycholinguistiques existantes (par ex. concrétude, imageabilité, valeurs sensorielles, symbolisme sonore), citées avec leur source vérifiée, et non par intuition.
+- Les baselines minimales : lettres seules, IPA seul, motif aléatoire de même longueur.
+
+---
+
+# 2ter. Mots « à inventer » (espéranto IA-friendly)
+
+Objectif à rendre mesurable : composer, pour chaque mélange culturel, des formes candidates où chaque lettre tapée et/ou chaque syllabe prononcée est exploitable par un prefill/draft `llama.cpp` composé avec EmbedBabel pour cadrer la compréhension de la requête et la recherche de contexte (RAG).
+
+- **Tâche** : étant donné deux langues A et B en contact, générer des formes néologiques candidates.
+- **Évaluation** : (a) rétro-test sur des mélanges réels et documentés (pidgins, créoles, mots-valises attestés) en masquant la forme et en la reconstruisant ; (b) panel de locuteurs ; (c) efficacité en tokens du lexique obtenu face à un tokenizer standard.
+- **Contrôles** : un espéranto/interlangue existant (Esperanto, Interlingua) et un générateur aléatoire contraint par la phonotactique.
+- **Piège hors distribution** : un lexique « IA-friendly » doit l'être pour un LLM *pré-entraîné*. Un vocabulaire nouveau est hors distribution et probablement **pire** sans fine-tuning ; le benchmark doit mesurer ce coût, pas l'ignorer.
+
+---
+
+# 2quater. Désambiguïsation d'homophones par contexte
+
+Deux mots peuvent sonner pareil mais avoir une proximité contextuelle différente (ex. *vers / verre / ver / vert*, *sain / saint / sein*).
+
+- **Tâche** : `sons(w1) = sons(w2)` mais sens différent ; choisir le bon mot selon l'historique et la requête.
+- **Sketch de contexte** : les hash des mots/syllabes de l'historique et de la requête forment un sketch compact. Il doit être comparé explicitement à des baselines **MinHash, SimHash et count-min** sur un simple bag-of-n-grams hashé, pour savoir si la structure gématrico-phonétique apporte quoi que ce soit en plus.
+- **Mesures** : accuracy en streaming après k syllabes de requête, latence par désambiguïsation, comparaison avec un n-gramme de contexte et un petit modèle de langage.
+
+---
+
+# 2quinquies. Couche RAG : Neo4j + Qdrant contre solution maison
+
+Architecture à évaluer :
+
+    requête (flux caractère/syllabe)
+        → EmbedBabel (état incrémental)
+        → graphe lexical phonético-gématrique (arbres de sous-chaînes dans Neo4j)
+        → ancrage du contexte : graphe de connaissances (entités/chunks liés)
+        → vecteurs de chunks (Qdrant, indexés sur les arbres Neo4j)
+        → prefill/draft llama.cpp
+
+Les IA sont **notées** sur leur comparaison technique entre un Neo4j/Qdrant et une solution maison pour EmbedBabel, afin de juger si le choix relève de la facilité de développement ou de raisons techniques valables.
+
+| Critère | Poids | Question posée |
+|---|---|---|
+| Adéquation du modèle de données | 15 | Préfixes, sous-chaînes partagées et relations typées sont-ils naturels dans un graphe de propriétés ? |
+| Latence en streaming | 20 | Un lookup par caractère tient-il dans le budget (µs contre ms) ? Un aller-retour réseau/IPC par frappe est un risque majeur. |
+| Structure en mémoire | 10 | Un trie/DAWG/FST embarqué bat-il une base serveur pour la partie lexicale ? |
+| Recherche vectorielle | 10 | Qdrant (HNSW, filtres payload, quantification) est-il réellement plus efficace qu'une implémentation maison ? Sinon, pourquoi la refaire ? |
+| Filtrage hybride | 10 | Graphe + vecteurs combinés sans aller-retour coûteux ? |
+| Coût de maintenance | 10 | Le coût dev/ops d'une solution maison est-il justifié par un gain mesuré ? |
+| Reproductibilité | 10 | Un autre chercheur peut-il reproduire le banc (`docker-compose.yml`) ? |
+| Évolutivité | 5 | Mise à jour du dictionnaire, versioning, multilingue. |
+| Honnêteté de la justification | 10 | A-t-on mesuré, ou affirmé ? |
+
+**Test de découplage** : séparer (1) le **lexique embarqué** (trie/FST, très chaud, contraintes de latence), probablement mieux servi par une structure maison ou une bibliothèque embarquée, et (2) le **graphe de contexte et les chunks** (volumineux, évolutif, requêtes ad hoc), qui justifie plus souvent Neo4j/Qdrant. Exiger des mesures sur le même jeu de données : **latence p50 et p99** par opération, **mémoire**, **débit**. Pénaliser tout choix d'outil sans chiffre ni analyse du goulot d'étranglement.
+
+Hypothèse de travail à falsifier : « une architecture hybride (lexique embarqué maison + Neo4j/Qdrant pour le contexte) domine les deux extrêmes ». Plausible, non démontrée.
+
+## Rappels
+
+- **Petit vecteur ≠ moins de FLOPs** (ni moins de mémoire ni moins de bande passante).
+- **Graphe riche ≠ meilleur contexte** : une base de graphe volumineuse n'améliore pas la désambiguïsation tant qu'on n'a pas mesuré le gain contre les baselines.
+- Ne cite aucune source que tu n'as pas réellement vérifiée.
+
+---
+
 # 3. Relations inter-langues
 
 Le projet cherche à étudier des relations entre arbres issus de différentes langues.
@@ -410,6 +507,12 @@ Mesurer :
     qualité multilingue
 
 Comparer plusieurs niveaux de compression.
+
+## Expérience additionnelle : visualisation circulaire (`viz/circle_trace.py`)
+
+Les n lettres de l'alphabet sont placées à égale distance sur un cercle (angle 2πk/n, n rayons). Une entrée (texte, phonèmes IPA, ou transcription ASR optionnelle) trace un parcours lettre → lettre ; chaque préfixe produit une image, d'où un GIF de la construction incrémentale, éventuellement coloré selon la valeur gématrique, avec un panneau « motif phonétique » (même construction sur les phonèmes) côte à côte.
+
+À tester, **sans présupposer qu'il y ait quoi que ce soit à apprendre** : le motif visuel a-t-il une information prédictive au-delà de baselines — lettres seules, IPA seul, motif aléatoire de même longueur ? Avec permutations et correction des comparaisons multiples (section 2bis). Voir la section « Hypothèses à tester » du `README.md`.
 
 ---
 

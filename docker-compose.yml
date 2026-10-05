@@ -1,0 +1,27 @@
+# Reproductibilité : Neo4j (obligatoire) + Qdrant (optionnel, désactivé par défaut).
+#   export NEO4J_PASSWORD='<mot de passe >= 8 caractères>'
+#   docker compose up -d                       # Neo4j seul
+#   docker compose --profile qdrant up -d      # Neo4j + Qdrant
+services:
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474"   # navigateur HTTP
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?définir NEO4J_PASSWORD}"
+    volumes:
+      - neo4j_data:/data
+      - ./graph/export:/import   # CSV pour neo4j-admin import (--export-csv graph/export)
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    profiles: ["qdrant"]         # désactivé par défaut
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  neo4j_data:
+  qdrant_data:

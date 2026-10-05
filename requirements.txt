@@ -1,0 +1,11 @@
+# Dépendances de base
+numpy>=1.26
+matplotlib>=3.8
+Pillow>=10.0
+PyYAML>=6.0
+neo4j>=5.0
+pytest>=8.0
+
+# Optionnel (non installé par défaut) :
+#   openai-whisper   -> transcription ASR de fichiers audio (viz/circle_trace.py --audio)
+#                       pip install openai-whisper  (nécessite aussi ffmpeg)

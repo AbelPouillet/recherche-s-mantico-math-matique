@@ -1,0 +1,90 @@
+# Systèmes de gématrie configurables et alphabets par langue.
+#
+# Conventions (choix documentés, NON universels) :
+#  - `alphabet` donne l'ordre alphabétique : alphabet_index = position (0..n-1).
+#    Il fixe aussi la position angulaire 2πk/n dans viz/circle_trace.py.
+#  - `fold` : table de repli appliquée après passage en minuscules (casefold).
+#  - `strip_marks` : supprime les signes combinants (accents, niqqud, tashkīl)
+#    après décomposition NFD, sauf pour les caractères listés dans `keep`.
+#  - Les systèmes de valeurs sont listés dans `systems` ; le premier est le
+#    système par défaut. `kind: table` utilise `values` ; `kind: ordinal`
+#    donne index+1 ; `kind: pythagorean` donne 1 + (index mod 9).
+#  - Les systèmes historiques existent en variantes (ex. abjad maghrébin) ;
+#    seule la variante écrite ici est implémentée.
+
+systems:
+  hebrew_standard:        # mispar hechrechi (valeurs standard, formes finales = lettre de base)
+    kind: table
+    values: {א: 1, ב: 2, ג: 3, ד: 4, ה: 5, ו: 6, ז: 7, ח: 8, ט: 9, י: 10, כ: 20, ל: 30, מ: 40, נ: 50, ס: 60, ע: 70, פ: 80, צ: 90, ק: 100, ר: 200, ש: 300, ת: 400}
+  greek_isopsephy:       # isopséphie sur les 24 lettres de l'alphabet moderne (sans digamma/koppa/sampi)
+    kind: table
+    values: {α: 1, β: 2, γ: 3, δ: 4, ε: 5, ζ: 7, η: 8, θ: 9, ι: 10, κ: 20, λ: 30, μ: 40, ν: 50, ξ: 60, ο: 70, π: 80, ρ: 100, σ: 200, τ: 300, υ: 400, φ: 500, χ: 600, ψ: 700, ω: 800}
+  arabic_abjad:          # abjad « mashriqi » (ordre أبجد هوز حطي كلمن سعفص قرشت ثخذ ضظغ)
+    kind: table
+    values: {ا: 1, ب: 2, ج: 3, د: 4, ه: 5, و: 6, ز: 7, ح: 8, ط: 9, ي: 10, ك: 20, ل: 30, م: 40, ن: 50, س: 60, ع: 70, ف: 80, ص: 90, ق: 100, ر: 200, ش: 300, ت: 400, ث: 500, خ: 600, ذ: 700, ض: 800, ظ: 900, غ: 1000}
+  ordinal:               # position dans l'alphabet de la langue (1..n)
+    kind: ordinal
+  pythagorean:           # réduction cyclique 1..9 sur la position dans l'alphabet
+    kind: pythagorean
+
+languages:
+  fr:
+    name: français
+    direction: ltr
+    alphabet: [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z]
+    fold: {œ: oe, æ: ae}
+    strip_marks: true
+    systems: [ordinal, pythagorean]
+  en:
+    name: anglais
+    direction: ltr
+    alphabet: [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z]
+    fold: {æ: ae, œ: oe}
+    strip_marks: true
+    systems: [ordinal, pythagorean]
+  de:
+    name: allemand
+    direction: ltr
+    alphabet: [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z]
+    fold: {ß: ss}          # ä/ö/ü sont repliés vers a/o/u (choix : alternative ae/oe/ue non retenue)
+    strip_marks: true
+    systems: [ordinal, pythagorean]
+  es:
+    name: espagnol
+    direction: ltr
+    alphabet: [a,b,c,d,e,f,g,h,i,j,k,l,m,n,ñ,o,p,q,r,s,t,u,v,w,x,y,z]
+    fold: {}
+    keep: [ñ]
+    strip_marks: true
+    systems: [ordinal, pythagorean]
+  ar:
+    name: arabe
+    direction: rtl
+    alphabet: [ا,ب,ت,ث,ج,ح,خ,د,ذ,ر,ز,س,ش,ص,ض,ط,ظ,ع,غ,ف,ق,ك,ل,م,ن,ه,و,ي]   # ordre hijā'ī
+    fold: {أ: ا, إ: ا, آ: ا, ٱ: ا, ة: ه, ى: ي, ؤ: و, ئ: ي, ـ: ""}
+    strip_marks: true      # voyelles brèves/tashkīl optionnelles : supprimées par défaut
+    systems: [arabic_abjad, ordinal]
+  he:
+    name: hébreu
+    direction: rtl
+    alphabet: [א,ב,ג,ד,ה,ו,ז,ח,ט,י,כ,ל,מ,נ,ס,ע,פ,צ,ק,ר,ש,ת]
+    fold: {ך: כ, ם: מ, ן: נ, ף: פ, ץ: צ}
+    strip_marks: true      # niqqud et cantillation : supprimés par défaut
+    systems: [hebrew_standard, ordinal]
+  el:
+    name: grec moderne
+    direction: ltr
+    alphabet: [α,β,γ,δ,ε,ζ,η,θ,ι,κ,λ,μ,ν,ξ,ο,π,ρ,σ,τ,υ,φ,χ,ψ,ω]
+    fold: {ς: σ}
+    strip_marks: true      # tonos et dialytika supprimés
+    systems: [greek_isopsephy, ordinal]
+  zh:
+    name: chinois (mandarin)
+    direction: ltr
+    alphabetic: false      # pas d'alphabet : unités = caractères Han (voir graph/README.md)
+    systems: []
+  yue:
+    name: cantonais
+    direction: ltr
+    alphabetic: false
+    systems: []

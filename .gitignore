@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# Données téléchargées : jamais dans git (voir data/README.md)
+data/raw/
+data/dict/*.tsv
+data/etymology/edges.tsv
+# Sorties générées
+out/
+*.gif
+graph/export/
