@@ -70,6 +70,14 @@ def test_resume_gives_identical_report(tmp_path, reg):
     assert STATES[-1] == "RAPPORT"
 
 
+def test_resume_on_finished_run_returns_same_report(tmp_path, reg):
+    out = tmp_path / "done"
+    first = run(reg, MODELS, 600, 5, out)
+    trace_before = (out / "trace.json").read_bytes()
+    assert run(reg, MODELS, 600, 5, out, resume=True) == first
+    assert (out / "trace.json").read_bytes() == trace_before
+
+
 def test_registry_refuses_silent_overwrite(tmp_path):
     d = tmp_path / "registry"
     registry.register(DEF, registry_dir=d)

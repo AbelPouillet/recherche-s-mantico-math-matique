@@ -123,6 +123,9 @@ def run(harness: str, models: list[str], budget: int, seed: int, out: Path,
     if resume and ckpt_path.exists():
         ckpt = json.loads(ckpt_path.read_text(encoding="utf-8"))
         ctx, done, tb = ckpt["ctx"], ckpt["done"], TraceBuilder.from_dict(ckpt["trace"])
+        if "RAPPORT" in done and (out / "report.json").exists():
+            # exécution déjà terminée : rien à refaire, on relit le rapport écrit
+            return json.loads((out / "report.json").read_text(encoding="utf-8"))
     for state in STATES:
         if state in done:
             continue
