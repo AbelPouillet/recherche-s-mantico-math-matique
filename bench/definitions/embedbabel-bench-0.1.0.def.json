@@ -1,0 +1,14 @@
+{
+  "name": "embedbabel-bench",
+  "version": "0.1.0",
+  "prompt": "bench/prompts/EMBEDBABEL_BENCH_V2.md",
+  "preferences": {
+    "correlation_weights": {
+      "word~etymon": 0.4,
+      "etymon~phoneme": 0.3,
+      "word~phoneme": 0.3
+    },
+    "h0_threshold": 0.2,
+    "tolerance_pct": 10.0
+  }
+}
