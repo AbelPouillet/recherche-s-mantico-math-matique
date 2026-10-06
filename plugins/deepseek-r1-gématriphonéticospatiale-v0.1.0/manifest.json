@@ -1,0 +1,16 @@
+{
+  "model_id": "deepseek-r1",
+  "plugin_name": "deepseek-r1-gématriphonéticospatiale-v0.1.0",
+  "version": "0.1.0",
+  "entrypoint": "adapter.py",
+  "trigger": {"keyword": "go", "case_insensitive": true},
+  "bench_prompt": "bench/prompts/EMBEDBABEL_BENCH_V2.md",
+  "context_guard": {
+    "enabled": true,
+    "max_prior_messages": 0,
+    "max_prior_chars": 0,
+    "on_polluted": "ask_new_conversation"
+  },
+  "capabilities": ["dictionary_analysis", "correlation_mapping", "anti_mystical_audit", "quiz_mode"],
+  "output_format": "json_strict"
+}
