@@ -1,0 +1,32 @@
+# Reproductibilité : Neo4j (obligatoire) + Qdrant (optionnel, désactivé par défaut).
+#   export NEO4J_PASSWORD='<mot de passe >= 8 caractères>'    # ou fichier .env (ignoré par git)
+#   export DATA_ROOT='D:/embedbabel-data'                     # disque DATA (défaut ci-dessous)
+#   docker compose up -d                       # Neo4j seul
+#   docker compose --profile qdrant up -d      # Neo4j + Qdrant
+# Les données (graphe, vecteurs) sont des bind mounts sous DATA_ROOT, hors du dépôt.
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    ports:
+      - "7474:7474"   # navigateur HTTP
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?définir NEO4J_PASSWORD (>= 8 caractères)}"
+    volumes:
+      - ${DATA_ROOT:-D:/embedbabel-data}/neo4j/data:/data
+      - ./graph/export:/import   # CSV pour neo4j-admin import (--export-csv graph/export)
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.0
+    profiles: ["qdrant"]         # désactivé par défaut
+    ports:
+      - "6333:6333"
+    volumes:
+      # Volume nommé (disque virtuel Docker) : Qdrant exige un vrai système de fichiers local ;
+      # un bind mount Windows (D:) corrompt son stockage mmap (erreur Gridstore). Sauvegarde sur
+      # DATA_ROOT via snapshot : voir README.md.
+      - qdrant_data:/qdrant/storage
+      - ${DATA_ROOT:-D:/embedbabel-data}/qdrant/snapshots:/qdrant/snapshots
+
+volumes:
+  qdrant_data:
