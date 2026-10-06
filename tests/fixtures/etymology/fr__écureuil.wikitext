@@ -1,0 +1,8 @@
+<!-- FIXTURE SYNTHÉTIQUE pour tester l'analyseur — non vérifiée contre le Wiktionnaire -->
+==French==
+
+===Etymology===
+From {{inh|fr|fro|escurel}}, from {{inh|fro|la|sciurus}}, from {{bor|la|grc|σκίουρος}}. Cognate with {{cog|en|squirrel}}.
+
+===Pronunciation===
+* {{IPA|fr|/e.ky.ʁœj/}}

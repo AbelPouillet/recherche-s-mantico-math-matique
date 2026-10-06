@@ -1,0 +1,5 @@
+# Règles de changement phonétique DOCUMENTÉES. Format TSV, colonnes :
+# src_lang  dst_lang  src_text  dst_text  rule  source
+# Une ligne n'a le droit d'exister que si `source` cite une référence vérifiée (URL/ouvrage + page).
+# Ne jamais déduire ni compléter librement une règle : laisser ce fichier vide plutôt que d'inventer.
+src_lang	dst_lang	src_text	dst_text	rule	source
