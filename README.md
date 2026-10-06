@@ -30,6 +30,12 @@ But : maximiser l’information utile sur les opérations internes (détection, 
 Voir la spec complète :
 - `docs/LED7_SIGNATURE_BUS.md`
 
+### Conception simulée
+
+La simulation peut explorer la conception pluridisciplinaire d'un médaillon micro/radio/décodeur/traducteur à partir des recherches sémanticophonétiques et graphiquement gématriques. Le concept comprend un câblage transparent à trois conducteurs (or, argent et cuivre), des éléments simulés électromagnétiques, piézoélectriques et photovoltaïques, ainsi qu'un cadran réglable pour la fréquence radio. À la détection de l'injonction « traduis », le médaillon baisse le volume de la radio et traduit la réception.
+
+Les IA peuvent chiffrer les fonctions en tokens et proposer d'autres fonctionnalités compatibles avec une représentation ternaire-binaire. Les dictionnaires alphabétiques et les six LEDs périphériques peuvent également être explorés comme supports de quantification ternaire-binaire des lettres prédites à partir des sons et du contexte précédent.
+
 ## Plugin DeepSeek (bench-harness-v2)
 
 Plugin ajouté :
