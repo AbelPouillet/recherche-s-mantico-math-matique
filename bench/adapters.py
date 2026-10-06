@@ -1,89 +1,144 @@
-"""Adaptateurs factices (sans réseau) + validation stricte de la sortie JSON.
+"""Adaptateurs de modèle factices : reproductibles (graine), sans réseau, sans horloge.
 
-Chaque adaptateur renvoie une chaîne JSON. Le harnais mesure lui-même le coût
-(somme des longueurs des affirmations) et le compare au coût déclaré.
+Le comportement vient du code, jamais d'un appel de modèle. Chaque étape est une
+fonction PURE de (graine, numéro d'étape, sorties des étapes précédentes) : c'est ce
+qui permet à un second adaptateur de reprendre à l'étape n depuis le seul compte rendu.
+
+  honnete    limite et budget corrects
+  optimiste  annonce un budget 3 fois trop bas (et conclut GO, tout « solide »)
+  bavard     dépasse sa limite de contexte déclarée
+  casse_*    sorties invalides (champ manquant, tag hors vocabulaire, texte hors JSON)
 """
 from __future__ import annotations
 
-import json
 import random
 
-TAGS = ("DEFINI", "TESTABLE", "PLAUSIBLE", "SPECULATIF", "PROBABLEMENT_FAUX")
-CORRELATION_KEYS = ("word~etymon", "etymon~phoneme", "word~phoneme")
+from .budget import CHARS_PER_TOKEN, STEP_NAMES, est_tokens
+from .schema import TAGS
+from .trace import canonical_json
+
+AXES = ("word~etymon", "etymon~phoneme", "word~phoneme")
+OPERATORS = ("Advance", "Merge", "Compress", "ProjectToLLM", "S_t")
+BASELINES = ("caractères", "byte-level", "tokenizer natif", "sous-chaînes sans gématrie", "trie",
+             "features aléatoires", "embeddings appris", "petit pré-encodeur", "sans EmbedBabel")
+CONTROLS = ("permutation", "dictionnaire bruité", "langue OOD", "scramble numérique")
+INTEGRATION = ("pré-tokenizer", "tokenizer", "prefill", "draft", "KV-cache", "couche externe")
+CLAIM_TAGS = ("TESTABLE", "PLAUSIBLE", "SPECULATIF")
 
 
-def measured_cost(claims: list[dict]) -> int:
-    return sum(len(str(c.get("text", ""))) for c in claims)
+def _produce(step: int, prior: dict, info: dict, optimistic: bool) -> dict:
+    """Contenu d'une étape. Pure : dépend de info['seed'], de `step` et de `prior`."""
+    rng = random.Random(f"{info['seed']}:{step}")
+    if step == 1:
+        n_ops = 3 + rng.randint(0, 2)
+        return {
+            "meta": {"model": info["model"], "seed": info["seed"], "schema": "v2-conv-0.2"},
+            "executive_verdict": {"decision": "GO" if optimistic else "NO-GO",
+                                  "summary": "gain non démontré, H0 conservée" if not optimistic
+                                  else "gain prometteur"},
+            "formalization": {"graph": "G=(V,E,R)", "operators": list(OPERATORS[:n_ops])},
+        }
+    if step == 2:
+        n_ops = len(prior["formalization"]["operators"])
+        axes = list(AXES)
+        if optimistic:
+            cmap = {"solid": axes, "fragile": [], "illusory": []}
+        else:
+            rng.shuffle(axes)
+            cmap = {"solid": [], "fragile": axes[:1], "illusory": axes[1:]}
+        return {
+            "correlation_map": cmap,
+            "anti_mystical_audit": {"sdm": 10 if optimistic else 40 + 5 * n_ops + rng.randint(0, 5),
+                                    "justification": f"{n_ops} opérateurs formalisés, aucune preuve de gain"},
+            "fruitful_intuitions": [
+                {"text": f"intuition {i + 1}", "sif": rng.randint(20, 80),
+                 "justification": "testable par ablation"} for i in range(3 + n_ops % 3)],
+        }
+    intuitions = prior["fruitful_intuitions"]
+    claims = []
+    for i, it in enumerate(intuitions):
+        claim = {"text": it["text"], "tag": "DEFINI" if optimistic else CLAIM_TAGS[i % len(CLAIM_TAGS)]}
+        claim["refutation_test" if i == 0 else "justification"] = "permutation des étiquettes"
+        claims.append(claim)
+    return {
+        "experimental_plan": {"baselines": list(BASELINES), "controls": list(CONTROLS)},
+        "system_integration": {"points": list(INTEGRATION), "hidden_costs": ["mémoire", "latence"]},
+        "smallest_decisive_experiment": {"description": "ablation gématrie contre hash aléatoire",
+                                         "refutation_test": "gain nul sous permutation"},
+        "claim_tagging_summary": {"claims": claims},
+    }
 
 
-def validate_response(text: str) -> tuple[dict | None, list[str]]:
-    """Retourne (objet, erreurs). Objet = None si le JSON est invalide ou hors schéma."""
-    try:
-        obj = json.loads(text)
-    except (json.JSONDecodeError, TypeError) as exc:
-        return None, [f"JSON invalide : {exc}"]
-    errors: list[str] = []
-    if not isinstance(obj, dict):
-        return None, ["la racine doit être un objet"]
-    for key in ("model", "claims", "declared_cost", "correlations", "verdict"):
-        if key not in obj:
-            errors.append(f"clé manquante : {key}")
-    if errors:
-        return None, errors
-    if not isinstance(obj["claims"], list) or not obj["claims"]:
-        errors.append("claims doit être une liste non vide")
-    else:
-        for i, c in enumerate(obj["claims"]):
-            if not isinstance(c, dict) or not isinstance(c.get("text"), str) or c.get("tag") not in TAGS:
-                errors.append(f"claims[{i}] : texte ou tag invalide")
-    if not isinstance(obj["declared_cost"], int) or obj["declared_cost"] <= 0:
-        errors.append("declared_cost doit être un entier > 0")
-    corr = obj["correlations"]
-    if not isinstance(corr, dict) or set(corr) != set(CORRELATION_KEYS):
-        errors.append(f"correlations doit avoir exactement les clés {CORRELATION_KEYS}")
-    else:
-        for k, v in corr.items():
-            if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0.0 <= v <= 1.0:
-                errors.append(f"correlations[{k}] hors [0, 1]")
-    return (None, errors) if errors else (obj, [])
+class MockAdapter:
+    kind = "honnete"
+    optimistic = False
+    pad = False            # bavard : gonfle la dernière étape au-delà de la limite de contexte
+    plan_divisor = 1       # optimiste : budget annoncé = vrai coût // 3
+    defect: str | None = None
+
+    def __init__(self, context_limit: int) -> None:
+        self.context_limit = context_limit
+
+    def declare(self) -> dict:
+        return {"context_limit": self.context_limit}
+
+    def plan(self, info: dict) -> list[int]:
+        """Estimation de tokens par étape, calculée par simulation à vide (sans remplissage)."""
+        prior: dict = {}
+        estimates = []
+        for k in range(1, len(STEP_NAMES) + 1):
+            out = _produce(k, prior, info, self.optimistic)
+            prior.update(out)
+            estimates.append(max(1, est_tokens(canonical_json(out)) // self.plan_divisor))
+        return estimates
+
+    def step(self, k: int, prior: dict, info: dict) -> dict:
+        out = _produce(k, prior, info, self.optimistic)
+        if self.pad and k == len(STEP_NAMES):
+            room = max(0, self.context_limit - info["prompt_tokens"])
+            out["system_integration"]["commentary"] = "x" * (room * CHARS_PER_TOKEN + 400)
+        return out
+
+    def finalize(self, merged: dict) -> str:
+        data = dict(merged)
+        if self.defect == "champ":
+            data.pop("formalization", None)
+        elif self.defect == "tag":
+            data["claim_tagging_summary"] = {"claims": [
+                {**c, "tag": "TAG_INCONNU"} for c in data["claim_tagging_summary"]["claims"]]}
+        text = canonical_json(data)
+        return "Voici l'analyse demandée : " + text if self.defect == "texte" else text
 
 
-def _base(model: str, rng: random.Random, n_claims: int, tags: tuple[str, ...]) -> dict:
-    claims = [{"text": f"{model} : hypothèse {i + 1} sur le lien mot/étymon/phonème",
-               "tag": tags[i % len(tags)]} for i in range(n_claims)]
-    correlations = {k: round(rng.uniform(0.0, 0.25), 3) for k in CORRELATION_KEYS}
-    return {"model": model, "claims": claims, "correlations": correlations,
-            "verdict": "H0 retenue" if max(correlations.values()) < 0.2 else "à tester"}
+class Honest(MockAdapter):
+    kind = "honnete"
 
 
-def honest(task: dict, seed: int) -> str:
-    rng = random.Random(f"honest:{seed}")
-    obj = _base("honnete", rng, 4, ("TESTABLE", "PLAUSIBLE", "SPECULATIF"))
-    obj["declared_cost"] = measured_cost(obj["claims"])
-    return json.dumps(obj, ensure_ascii=False)
+class Optimistic(MockAdapter):
+    kind = "optimiste"
+    optimistic = True
+    plan_divisor = 3
 
 
-def optimistic(task: dict, seed: int) -> str:
-    """Sous-déclare son coût (~40 %) et gonfle les corrélations."""
-    rng = random.Random(f"optimistic:{seed}")
-    obj = _base("optimiste", rng, 4, ("DEFINI", "TESTABLE"))
-    obj["correlations"] = {k: round(min(1.0, v + 0.6), 3) for k, v in obj["correlations"].items()}
-    obj["verdict"] = "à tester"
-    obj["declared_cost"] = max(1, int(measured_cost(obj["claims"]) * 0.6))
-    return json.dumps(obj, ensure_ascii=False)
+class Verbose(MockAdapter):
+    kind = "bavard"
+    pad = True
 
 
-def verbose(task: dict, seed: int) -> str:
-    """Honnête sur le coût, mais dépasse largement le budget de la tâche."""
-    rng = random.Random(f"verbose:{seed}")
-    n = max(8, task["budget"] // 20)
-    obj = _base("bavard", rng, n, ("PLAUSIBLE", "SPECULATIF"))
-    obj["declared_cost"] = measured_cost(obj["claims"])
-    return json.dumps(obj, ensure_ascii=False)
+class BrokenField(MockAdapter):
+    kind = "casse_champ"
+    defect = "champ"
 
 
-def malformed(task: dict, seed: int) -> str:
-    return '{"model": "casse", "claims": ['
+class BrokenTag(MockAdapter):
+    kind = "casse_tag"
+    defect = "tag"
 
 
-ADAPTERS = {"honnete": honest, "optimiste": optimistic, "bavard": verbose, "casse": malformed}
+class BrokenText(MockAdapter):
+    kind = "casse_texte"
+    defect = "texte"
+
+
+ADAPTERS = {c.kind: c for c in (Honest, Optimistic, Verbose, BrokenField, BrokenTag, BrokenText)}
+assert all(t in TAGS for t in CLAIM_TAGS)  # cohérence avec schema.TAGS

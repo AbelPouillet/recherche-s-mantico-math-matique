@@ -1,0 +1,11 @@
+{
+  "harness": "embedbabel-bench-0.2.0",
+  "models": [
+    {"name": "honnete", "adapter": "honnete", "context_limit": 12000},
+    {"name": "optimiste", "adapter": "optimiste", "context_limit": 12000},
+    {"name": "bavard", "adapter": "bavard", "context_limit": 12000},
+    {"name": "casse_champ", "adapter": "casse_champ", "context_limit": 12000},
+    {"name": "casse_tag", "adapter": "casse_tag", "context_limit": 12000},
+    {"name": "casse_texte", "adapter": "casse_texte", "context_limit": 12000}
+  ]
+}

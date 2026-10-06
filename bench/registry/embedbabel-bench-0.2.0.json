@@ -1,0 +1,73 @@
+{
+  "definition": {
+    "name": "embedbabel-bench",
+    "version": "0.2.0",
+    "prompt": "bench/prompts/EMBEDBABEL_BENCH_V2.md",
+    "doc": "bench/harnesses/embedbabel-bench/0.2.0/HARNESS.md",
+    "schema": "v2-conv-0.2",
+    "tasks": {
+      "v2-complet": {
+        "packets": [
+          {
+            "id": "prompt",
+            "path": "bench/prompts/EMBEDBABEL_BENCH_V2.md",
+            "required": true
+          },
+          {
+            "id": "projet",
+            "path": "PROMPT.md"
+          },
+          {
+            "id": "rapport",
+            "path": "docs/EMBEDBABEL_REPORT.md"
+          },
+          {
+            "id": "led7",
+            "path": "docs/LED7_SIGNATURE_BUS.md"
+          }
+        ]
+      },
+      "v2-minimal": {
+        "packets": [
+          {
+            "id": "prompt",
+            "path": "bench/prompts/EMBEDBABEL_BENCH_V2.md",
+            "required": true
+          }
+        ]
+      }
+    },
+    "preferences": {
+      "tolerance_pct": 10.0,
+      "correlation_axes": [
+        "word~etymon",
+        "etymon~phoneme",
+        "word~phoneme"
+      ],
+      "correlation_weights": {
+        "word~etymon": 0.4,
+        "etymon~phoneme": 0.3,
+        "word~phoneme": 0.3
+      },
+      "h0_threshold": 0.2
+    }
+  },
+  "content_hash": "4cd3cc22839981cd3a6952f263f0cf4816c74841701a5ea2a47d72a534541337",
+  "runs": [
+    {
+      "seed": 42,
+      "budget": 3000,
+      "task": "v2-complet",
+      "models": [
+        "honnete",
+        "optimiste",
+        "bavard",
+        "casse_champ",
+        "casse_tag",
+        "casse_texte"
+      ],
+      "verdict": "H0 retenue",
+      "trace_sha256": "7add25ad6a34858c4e0ae6958199881b1fa1bd147163e7a3d24158dddcfcd8fd"
+    }
+  ]
+}

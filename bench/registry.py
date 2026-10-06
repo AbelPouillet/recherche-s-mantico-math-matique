@@ -24,9 +24,24 @@ def harness_id(defn: dict) -> str:
     return f"{defn['name']}-{defn['version']}"
 
 
+def _extra_files(defn: dict) -> list[str]:
+    """Fichiers couverts par le hash en plus du prompt : documentation et paquets des tâches."""
+    paths = [defn["doc"]] if "doc" in defn else []
+    for task in defn.get("tasks", {}).values():
+        paths += [p["path"] for p in task.get("packets", [])]
+    return sorted(set(paths) - {defn["prompt"]})
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def compute_hash(defn: dict, root: Path = ROOT) -> str:
-    prompt = (root / defn["prompt"]).read_bytes()
-    return digest({"definition": defn, "prompt_sha256": hashlib.sha256(prompt).hexdigest()})
+    payload = {"definition": defn, "prompt_sha256": _sha(root / defn["prompt"])}
+    extra = _extra_files(defn)
+    if extra:  # absent des définitions 0.1.0 : leur hash reste inchangé
+        payload["extra_sha256"] = {p: _sha(root / p) for p in extra}
+    return digest(payload)
 
 
 def _path(hid: str, registry_dir: Path | None) -> Path:
