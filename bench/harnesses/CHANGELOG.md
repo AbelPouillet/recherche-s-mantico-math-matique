@@ -1,5 +1,11 @@
 # Changelog des harnais
 
+## Registre (toutes les versions)
+- Le hash d'inscription est calculé sur le contenu avec fins de ligne normalisées (CRLF -> LF). Avant, il
+  dépendait de `core.autocrlf` : une copie de travail Windows et une copie Linux donnaient des hashs différents.
+  Les hashs de 0.1.0 et 0.2.0 ont été recalculés (même contenu, aucune exécution perdue) avant toute publication
+  des commits correspondants. À partir de là, un changement de hash signifie un vrai changement de contenu.
+
 ## embedbabel-bench
 
 ### 0.2.0

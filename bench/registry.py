@@ -33,7 +33,9 @@ def _extra_files(defn: dict) -> list[str]:
 
 
 def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    # fins de ligne normalisées : git (core.autocrlf) réécrit LF <-> CRLF selon la machine,
+    # le hash ne doit pas en dépendre
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def compute_hash(defn: dict, root: Path = ROOT) -> str:

@@ -200,6 +200,19 @@ def test_registry_hash_covers_documentation(tmp_path):
     assert registry.compute_hash(DEF, root) != before
 
 
+def test_registry_hash_ignores_line_endings(tmp_path):
+    """git (core.autocrlf) réécrit LF <-> CRLF selon la machine : le hash ne doit pas changer."""
+    root = tmp_path / "root"
+    files = [DEF["prompt"], DEF["doc"]] + [p["path"] for t in DEF["tasks"].values() for p in t["packets"]]
+    for rel in files:
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(b"ligne 1\nligne 2\n")
+    lf = registry.compute_hash(DEF, root)
+    for rel in files:
+        (root / rel).write_bytes(b"ligne 1\r\nligne 2\r\n")
+    assert registry.compute_hash(DEF, root) == lf
+
+
 def test_runs_recorded_once(tmp_path, reg):
     run(reg, entries(), "v2-minimal", BUDGET, 1, tmp_path / "x")
     run(reg, entries(), "v2-minimal", BUDGET, 1, tmp_path / "y")
