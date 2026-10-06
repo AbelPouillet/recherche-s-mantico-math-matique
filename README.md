@@ -23,3 +23,7 @@ Ce dépôt sert à collecter les rapports de plusieurs IA sur l'idée EmbedBabel
 ## Règle importante
 
 Le benchmark ne cherche pas à confirmer EmbedBabel. Il cherche à déterminer si l'idée produit une représentation utile et si cette représentation peut conduire à une réduction réelle du coût d'inférence.
+
+# V3 Exploitation des recherches dans la création d'objet par simulation  et approche pluridisciplinaire 
+équipe le harness deepseek du simulateur https://gitlab.com/openCFS/cfs 
+pour à partir des recherche sémanticophonétique et graphicalement gématrique concevoir un médaillon micro/radio/décodeur/traducteur avec les contrainte suivantes les bus des fils ont le même isolant transparent et sont composer de 3 fil un fil d'or un fil d'argent et un fil de cuivre , c'est dernier devront alimenter/s'approvisionner/fonctionner sur des électroaimant des piezzo et du capteurs photovoltaïque , posséder un cadran pivotable pour régler la fréquence de réception radio et a la détection de l'injontion "traduis" il baisse le son de la radio et traduit la réception , les ia devrons chiffrer chacune des feature du médaillon en token et proposer des devis d'autres feature applicable à un médaillon en ternaire*binaire  , la directions des dictionnaire des alphabets devront elles êtes quantifier en ternaire*bianaire pour facilité les contraintes technique des 6 led permettrons de suivre sur le médaillons la quantification ternaire*binaire des lettres prédites sur les sons vis a vis des précédentes
