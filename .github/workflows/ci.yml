@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # Filet contre la pourriture des dépendances. L'installation n'est pas verrouillée
+  # (`pip install -e ".[dev]"` résout à neuf à chaque exécution) : une nouvelle version mineure de
+  # numpy, PyYAML, neo4j ou pytest peut casser `main` sans qu'aucun commit n'ait changé. C'est
+  # exactement le mode d'échec qui laissait quatre modules de test non collectables avant P0.
+  schedule:
+    - cron: "17 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
