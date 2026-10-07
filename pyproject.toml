@@ -24,6 +24,9 @@ dev = ["pytest>=8.0,<10"]
 #: Mesure des ressources locales : `psutil` améliore la lecture de la RAM et de la RSS du serveur.
 #: Sans lui, `bench/perf/resources.py` retombe sur `GlobalMemoryStatusEx` (Windows) ou /proc/meminfo.
 perf = ["psutil>=5.9"]
+#: Chiffrage des tokens : les journaux de session DSH sont des frames zstd **concaténées**, que la
+#: bibliothèque standard de Python 3.11 ne sait pas lire (elle s'arrête à la première frame).
+tokens = ["zstandard>=0.22"]
 
 [tool.setuptools]
 packages = ["bench", "bench.perf", "bench.selfimprove", "embedbabel"]

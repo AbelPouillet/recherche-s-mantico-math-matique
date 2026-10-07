@@ -86,6 +86,34 @@ def cmd_tune(args) -> int:
     return 0 if result.get("decision") else 1
 
 
+def cmd_tokens(args) -> int:
+    """Chiffrage en lecture seule des journaux de session DSH (aucune écriture, aucun montage)."""
+    from . import tokens as tokens_mod
+
+    if args.log:
+        usage = tokens_mod.session_usage(Path(args.log))
+        print(json.dumps({**usage.to_dict(),
+                          "par_tour": tokens_mod.tokens_by_turn(Path(args.log))},
+                         indent=2, ensure_ascii=False))
+        return 0
+    report = tokens_mod.machine_usage(homes=[Path(args.home)] if args.home else None,
+                                      progress=print if args.verbose else None)
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(json.dumps({k: report[k] for k in ("available", "homes", "by_model", "totals", "note")},
+                         indent=2, ensure_ascii=False))
+    if not report["available"]:
+        print(f"\n{report['reason']}", file=sys.stderr)
+        return 1
+    if args.enrich_decisions:
+        from . import records as records_mod
+        loaded = records_mod.load(args.enrich_decisions, args.enrich_outcomes)
+        result = tokens_mod.enrich(loaded, log=Path(args.log) if args.log else None)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_envelope(args) -> int:
     print(json.dumps(tuning.envelope(args.gpu_index), indent=2, ensure_ascii=False))
     return 0
@@ -133,6 +161,15 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--gpu-index", type=int, default=0)
     e.set_defaults(func=cmd_envelope)
 
+    k = sub.add_parser("tokens", help="chiffrage des tokens depuis les journaux de session DSH")
+    k.add_argument("--home", type=Path, help="un « dsh home » précis (défaut : tous)")
+    k.add_argument("--log", type=Path, help="détailler un journal de session précis")
+    k.add_argument("--json", action="store_true", help="sortie complète, session par session")
+    k.add_argument("--verbose", action="store_true", help="progression de la lecture")
+    k.add_argument("--enrich-decisions", type=Path,
+                   help="journal du plugin DSH à enrichir avec les tokens mesurés")
+    k.add_argument("--enrich-outcomes", type=Path, help="fichier d'issues associé")
+    k.set_defaults(func=cmd_tokens)
 
     args = p.parse_args(argv)
     return args.func(args)
