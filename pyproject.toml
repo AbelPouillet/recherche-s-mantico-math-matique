@@ -26,7 +26,7 @@ dev = ["pytest>=8.0,<10"]
 perf = ["psutil>=5.9"]
 
 [tool.setuptools]
-packages = ["bench", "bench.perf", "embedbabel"]
+packages = ["bench", "bench.perf", "bench.selfimprove", "embedbabel"]
 
 [tool.setuptools.package-data]
 bench = [
