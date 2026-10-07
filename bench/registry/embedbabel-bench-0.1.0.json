@@ -1,0 +1,43 @@
+{
+  "definition": {
+    "name": "embedbabel-bench",
+    "version": "0.1.0",
+    "prompt": "bench/prompts/EMBEDBABEL_BENCH_V2.md",
+    "preferences": {
+      "correlation_weights": {
+        "word~etymon": 0.4,
+        "etymon~phoneme": 0.3,
+        "word~phoneme": 0.3
+      },
+      "h0_threshold": 0.2,
+      "tolerance_pct": 10.0
+    }
+  },
+  "content_hash": "63601cf8d6bbc196b60497e6989c1a4ee8ce52e2eeed39fb33bb2d15d46498be",
+  "runs": [
+    {
+      "seed": 0,
+      "budget": 600,
+      "models": [
+        "honnete",
+        "optimiste",
+        "bavard",
+        "casse"
+      ],
+      "verdict": "H0 retenue",
+      "trace_sha256": "0e38b923373a9bcea8b4f440b4e5490018f62c64599ae54a73b10403b8aa07c2"
+    },
+    {
+      "seed": 42,
+      "budget": 600,
+      "models": [
+        "honnete",
+        "optimiste",
+        "bavard",
+        "casse"
+      ],
+      "verdict": "H0 retenue",
+      "trace_sha256": "acfdaa1d6dad5fd6920077e61956190a8be9f4dbed814cc10374d532f5e7d598"
+    }
+  ]
+}

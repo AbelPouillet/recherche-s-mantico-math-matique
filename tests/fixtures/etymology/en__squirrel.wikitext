@@ -1,0 +1,8 @@
+<!-- FIXTURE SYNTHÉTIQUE pour tester l'analyseur — non vérifiée contre le Wiktionnaire -->
+==English==
+
+===Etymology===
+From {{inh|en|enm|squirel}}, from {{bor|enm|fro|escurel}}, from {{inh|fro|la|sciurus}}.
+
+===Noun===
+{{en-noun}}

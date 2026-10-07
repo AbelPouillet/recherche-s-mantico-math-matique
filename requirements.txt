@@ -1,0 +1,12 @@
+# Dépendances de base (bornes compatibles : majeure suivante exclue)
+numpy>=1.26,<3
+matplotlib>=3.8,<4
+Pillow>=10.0,<13
+PyYAML>=6.0,<7
+neo4j>=5.0,<7
+qdrant-client>=1.19,<2     # serveur épinglé qdrant/qdrant:v1.19.0 (docker-compose.yml)
+pytest>=8.0,<10
+
+# Optionnel (non installé par défaut) :
+#   openai-whisper   -> transcription ASR de fichiers audio (viz/circle_trace.py --audio)
+#                       pip install openai-whisper  (nécessite aussi ffmpeg)
