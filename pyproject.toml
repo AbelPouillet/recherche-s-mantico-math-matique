@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "embedbabel"
 # La version du paquet suit celle du harnais courant (voir bench/harnesses/CHANGELOG.md).
 version = "0.4.0"
-description = "EmbedBabel \u2014 banc de recherche : harnais de bench versionn\u00e9, graphe phon\u00e9tico-g\u00e9matrique, visualisation circulaire"
+description = "EmbedBabel — banc de recherche : harnais de bench versionné, graphe phonético-gématrique, visualisation circulaire"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
@@ -21,9 +21,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0,<10"]
+#: Mesure des ressources locales : `psutil` améliore la lecture de la RAM et de la RSS du serveur.
+#: Sans lui, `bench/perf/resources.py` retombe sur `GlobalMemoryStatusEx` (Windows) ou /proc/meminfo.
+perf = ["psutil>=5.9"]
 
 [tool.setuptools]
-packages = ["bench", "embedbabel"]
+packages = ["bench", "bench.perf", "embedbabel"]
 
 [tool.setuptools.package-data]
 bench = [
@@ -32,6 +35,7 @@ bench = [
     "harnesses/*/*/*.md",
     "harnesses/*.md",
     "models/*.json",
+    "perf/*.json",
     "prompts/*.md",
     "registry/*.json",
 ]
