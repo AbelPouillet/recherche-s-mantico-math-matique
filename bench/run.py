@@ -25,12 +25,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
-from . import ledger, registry, schema
+from . import guard, ledger, registry, schema
 from .adapters import ADAPTERS, build
 from .budget import (STEP_NAMES, build_report, resume_output, step_record, telemetry_summary,
                      verify_checkpoints)
@@ -39,20 +38,6 @@ from .context import build_context, guard_history, load_packets
 from .trace import TraceBuilder, canonical_json, digest, validate_tree
 
 STATES = ("DECLARER", "PLANIFIER", "EXECUTER", "VALIDER", "EVALUER", "RAPPORT")
-PLUGIN_GLOB = "deepseek-r1-*"
-
-
-def load_plugin(root: Path = registry.ROOT):
-    """Charge l'adaptateur du plugin DeepSeek installé (None s'il est absent)."""
-    for plugin_dir in sorted((root / "plugins").glob(PLUGIN_GLOB)):
-        path = plugin_dir / "adapter.py"
-        if path.exists():
-            spec = importlib.util.spec_from_file_location("bench_plugin_deepseek", path)
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = mod  # requis par @dataclass + annotations différées
-            spec.loader.exec_module(mod)
-            return plugin_dir.name, mod
-    return None
 
 
 def load_models(path: Path) -> tuple[str | None, list[dict]]:
@@ -131,22 +116,22 @@ def _declare(ctx: dict, tb: TraceBuilder) -> None:
 
 
 def _plan(ctx: dict, tb: TraceBuilder) -> None:
+    rules = guard.rules_from(ctx["definition"].get("preferences"))
     with tb.step("PLANIFIER", models=[e["name"] for e in ctx["entries"]], budget=ctx["budget"]):
-        plugin = load_plugin()
-        if plugin is None:
-            tb.plugin_call("absent", "skip", reason="aucun plugin installé")
-        else:
-            name, mod = plugin
-            clean, polluted = mod.on_message([], "go"), mod.on_message([{"role": "user", "content": "x"}], "go")
-            tb.plugin_call(name, clean.action, context="vide", reason=clean.reason)
-            tb.plugin_call(name, polluted.action, context="pollué", reason=polluted.reason)
-            ctx["plugin_guard_ok"] = (clean.action == "run_bench"
-                                      and polluted.action == "ask_new_conversation")
+        # auto-vérification de la garde : sur historique vide elle doit laisser passer, sur
+        # historique pollué elle doit refuser. Le résultat est publié (`plugin_guard_ok`).
+        clean = guard.decide([], rules["keyword"], rules)
+        polluted = guard.decide([{"role": "user", "content": "x"}], rules["keyword"], rules)
+        tb.plugin_call("bench.guard", clean["action"], context="vide", reason=clean["reason"])
+        tb.plugin_call("bench.guard", polluted["action"], context="pollué", reason=polluted["reason"])
+        ctx["plugin_guard_ok"] = (clean["action"] == "run_bench"
+                                  and polluted["action"] == "ask_new_conversation")
+        ctx["context_guard_rules"] = rules
         spec = ctx["definition"]["tasks"][ctx["task"]]["packets"]
         packets = load_packets(spec, registry.ROOT)
         for e in ctx["entries"]:
             name = e["name"]
-            hist = guard_history(plugin, [])
+            hist = guard_history([], rules)
             _log(ctx, "PLANIFIER", name, "history_checked", **hist)
             context, text = build_context(packets, ctx["declared"][name], reserve=ctx["budget"])
             ctx["contexts"][name] = context
@@ -303,6 +288,7 @@ def _report(ctx: dict, tb: TraceBuilder) -> None:
         "harness": ctx["harness"], "task": ctx["task"], "seed": ctx["seed"], "budget": ctx["budget"],
         "models": [e["name"] for e in ctx["entries"]], "plugin_guard_ok": ctx.get("plugin_guard_ok"),
         "cache": bool(ctx.get("cache", True)), "tokenize": ctx.get("tokenize", "auto"),
+        "context_guard": ctx.get("context_guard_rules"),
         "declared_limits": ctx["declared"], "assessments": ctx["assessments"],
         "budget_reports": ctx["reports"], "telemetry": ctx["telemetry"],
         "resumes": ctx["resumes"], "grille_comptes_rendus": ctx["grille"],

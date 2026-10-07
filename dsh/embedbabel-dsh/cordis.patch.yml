@@ -1,0 +1,5 @@
+# Patch Cordis : insère le plugin dans le profil DSH courant.
+# Installer : dsh plugin --profile <profil> add <chemin-vers-ce-dossier>
+- insert:
+    - id: embedbabel-dsh
+      name: 'embedbabel-dsh'
