@@ -16,13 +16,14 @@ Les modèles ne sont appelés qu'à l'intérieur des états. Un point de contrô
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib.util
 import json
 import sys
 from pathlib import Path
 
 from . import registry, schema
-from .adapters import ADAPTERS
+from .adapters import ADAPTERS, build
 from .budget import STEP_NAMES, build_report, resume_output, step_record, verify_checkpoints
 from .consensus import assess, collective, cross_audit
 from .context import build_context, guard_history, load_packets
@@ -61,18 +62,35 @@ def load_models(path: Path) -> tuple[str | None, list[dict]]:
             raise SystemExit(f"{e['name']} : context_limit doit être un entier > 0")
         if e["name"] in names:
             raise SystemExit(f"nom de modèle dupliqué : {e['name']}")
+        if not isinstance(e.get("params", {}), dict):
+            raise SystemExit(f"{e['name']} : params doit être un objet JSON")
+        params = e.get("params", {})
+        if e["adapter"] == "ollama" and not params.get("model"):
+            raise SystemExit(f"{e['name']} : l'adaptateur ollama exige params.model (tag Ollama)")
+        if e["adapter"] == "llamacpp" and not (params.get("gguf") or params.get("host")):
+            raise SystemExit(f"{e['name']} : l'adaptateur llamacpp exige params.gguf (ou params.host)")
+        if "/" in e["name"] or "\\" in e["name"]:
+            raise SystemExit(f"{e['name']} : le nom sert de nom de dossier, sans séparateur de chemin")
         names.add(e["name"])
     return harness, entries
 
 
+def _closing(adapter):
+    """Ferme l'adaptateur (serveur lancé par lui) à la sortie ; sans effet pour les adaptateurs factices."""
+    return contextlib.closing(adapter) if hasattr(adapter, "close") else contextlib.nullcontext()
+
+
 def _adapter(ctx: dict, name: str):
-    entry = next(e for e in ctx["entries"] if e["name"] == name)
-    return ADAPTERS[entry["adapter"]](entry["context_limit"])
+    return build(next(e for e in ctx["entries"] if e["name"] == name))
 
 
 def _info(ctx: dict, name: str) -> dict:
+    out = Path(ctx["out"]) if ctx.get("out") else None
     return {"seed": ctx["seed"], "model": name, "prompt_tokens": ctx["contexts"][name]["tokens"],
-            "context_limit": ctx["declared"][name]}
+            "context_limit": ctx["declared"][name], "budget": ctx["budget"],
+            "context_text": ctx.get("context_texts", {}).get(name, ""),
+            "cache_dir": str(out / "cache") if out else None,
+            "manual_dir": str(out / "manual") if out else None, "out_dir": str(out) if out else None}
 
 
 def _log(ctx: dict, state: str, model: str | None, event: str, **data) -> None:
@@ -90,7 +108,7 @@ def _declare(ctx: dict, tb: TraceBuilder) -> None:
                          f"(disponibles : {sorted(ctx['definition'].get('tasks', {}))})")
     with tb.step("DECLARER", harness=ctx["harness"], content_hash=entry["content_hash"], task=ctx["task"]):
         for e in ctx["entries"]:
-            limit = ADAPTERS[e["adapter"]](e["context_limit"]).declare()["context_limit"]
+            limit = build(e).declare()["context_limit"]
             ctx["declared"][e["name"]] = limit
             _log(ctx, "DECLARER", e["name"], "context_limit_declared", context_limit=limit)
             with tb.step(f"déclaration {e['name']}", context_limit=limit):
@@ -115,8 +133,9 @@ def _plan(ctx: dict, tb: TraceBuilder) -> None:
             name = e["name"]
             hist = guard_history(plugin, [])
             _log(ctx, "PLANIFIER", name, "history_checked", **hist)
-            context, _text = build_context(packets, ctx["declared"][name], reserve=ctx["budget"])
+            context, text = build_context(packets, ctx["declared"][name], reserve=ctx["budget"])
             ctx["contexts"][name] = context
+            ctx["context_texts"][name] = text
             for ev in context["events"]:
                 _log(ctx, "PLANIFIER", name, **ev)
             with tb.step(f"contexte {name}", ok=context["ok"], tokens=context["tokens"],
@@ -134,7 +153,7 @@ def _execute(ctx: dict, tb: TraceBuilder) -> None:
         for name in (e["name"] for e in ctx["entries"] if e["name"] in ctx["plans"]):
             adapter, info = _adapter(ctx, name), _info(ctx, name)
             prior, steps = {}, []
-            with tb.step(f"modèle {name}"):
+            with tb.step(f"modèle {name}"), _closing(adapter):
                 for k, step_name in enumerate(STEP_NAMES, 1):
                     with tb.step(f"étape {k} {step_name}") as node:
                         out = adapter.step(k, prior, info)
@@ -148,6 +167,8 @@ def _execute(ctx: dict, tb: TraceBuilder) -> None:
             report = build_report(name, ctx["declared"][name], ctx["seed"], ctx["contexts"][name], steps)
             ctx["reports"][name] = report
             ctx["finals"][name] = adapter.finalize(prior)
+            if getattr(adapter, "usage", None):
+                _log(ctx, "EXECUTER", name, "live_usage", usage=adapter.usage)
             if report["context_used"] > report["declared_context_limit"]:
                 _log(ctx, "EXECUTER", name, "context_overflow", used=report["context_used"],
                      limit=report["declared_context_limit"])
@@ -192,7 +213,10 @@ def _evaluate(ctx: dict, tb: TraceBuilder) -> None:
 def _resume_ok(ctx: dict, name: str, report: dict, n: int) -> bool:
     """Un adaptateur NEUF reprend à l'étape n depuis le seul compte rendu : même texte final ?"""
     adapter = _adapter(ctx, name)
-    merged = resume_output(adapter, report, n)
+    # reprise sans cache : un modèle réel est rappelé, on mesure sa reproductibilité
+    extra = {**_info(ctx, name), "cache_dir": None}
+    with _closing(adapter):
+        merged = resume_output(adapter, report, n, extra)
     return not verify_checkpoints(report) and adapter.finalize(merged) == ctx["finals"][name]
 
 
@@ -214,7 +238,8 @@ def _report(ctx: dict, tb: TraceBuilder) -> None:
 
 
 STEP_FUNCS = dict(zip(STATES, (_declare, _plan, _execute, _validate, _evaluate, _report)))
-_FRESH = ("declared", "contexts", "plans", "reports", "finals", "outputs", "assessments", "resumes")
+_FRESH = ("declared", "contexts", "plans", "reports", "finals", "outputs", "assessments", "resumes",
+          "context_texts")
 
 
 def run(harness: str, entries: list[dict], task: str, budget: int, seed: int, out: Path,
@@ -236,9 +261,10 @@ def run(harness: str, entries: list[dict], task: str, budget: int, seed: int, ou
     for state in STATES:
         if state in done:
             continue
+        ctx["out"] = str(out)
         STEP_FUNCS[state](ctx, tb)
         done.append(state)
-        ckpt_path.write_text(canonical_json({"ctx": {k: v for k, v in ctx.items() if k not in ("report", "trace")},
+        ckpt_path.write_text(canonical_json({"ctx": {k: v for k, v in ctx.items() if k not in ("report", "trace", "out")},
                                              "done": done, "trace": tb.to_dict()}), encoding="utf-8")
         if state == stop_after:
             return None

@@ -42,5 +42,7 @@ fichiers de paquets) et la liste des exécutions. `--register` refuse une défin
 
 | Identifiant | Statut | Notes |
 |---|---|---|
-| `embedbabel-bench-0.2.0` | actuelle | schéma V2, limite de contexte, budget en tokens, audit croisé ([doc](embedbabel-bench/0.2.0/HARNESS.md)) |
+| `embedbabel-bench-0.4.0` | actuelle | 0.3.0 + adaptateur llama.cpp ([doc](embedbabel-bench/0.4.0/HARNESS.md)) |
+| `embedbabel-bench-0.3.0` | précédente | 0.2.0 + adaptateurs de modèles réels Ollama et manuel ([doc](embedbabel-bench/0.3.0/HARNESS.md)) |
+| `embedbabel-bench-0.2.0` | ancienne | schéma V2, limite de contexte, budget en tokens, audit croisé ([doc](embedbabel-bench/0.2.0/HARNESS.md)) |
 | `embedbabel-bench-0.1.0` | obsolète | définition dans `bench/definitions/`, schéma de sortie inventé (voir CHANGELOG) |

@@ -8,6 +8,20 @@
 
 ## embedbabel-bench
 
+### 0.4.0
+- Adaptateur `llamacpp` (`bench/live.py`) : `llama-server` lancé puis arrêté par le harnais après chaque modèle (ou serveur
+  déjà lancé via `params.host`), GGUF, `ngl` et options réglables selon les ressources.
+- Les adaptateurs peuvent exposer `close()` ; le harnais l'appelle après chaque modèle et après le test de reprise.
+- Définition, prompt, tâches, schéma et mesures **inchangés** : comparable avec 0.2.0 et 0.3.0 (seule la documentation change).
+
+### 0.3.0
+- Adaptateurs de modèles réels (`bench/live.py`) : `ollama` (HTTP local) et `manuel` (copier-coller, ex. DeepSeek web).
+- Le texte du contexte chargé est transmis aux adaptateurs ; réponses Ollama mises en cache ; compteurs réels du serveur
+  consignés (`live_usage`) ; entrée `params` dans le fichier modèles.
+- Définition, prompt, tâches, schéma et mesures **inchangés** : résultats comparables avec 0.2.0. Seule la documentation
+  (couverte par le hash) change, d'où la nouvelle version.
+- Non déterministe pour les modèles réels : le test de reprise y est une mesure de reproductibilité.
+
 ### 0.2.0
 - Sortie validée contre `EMBEDBABEL_BENCH_V2.md` : 10 clés, 6 tags (dont `NON_FALSIFIABLE`), réfutation, baselines,
   SDM/SIF justifiés. Les sous-champs sont une convention du harnais (V2 ne les définit pas).

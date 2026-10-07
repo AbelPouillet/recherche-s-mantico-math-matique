@@ -65,9 +65,10 @@ def prior_outputs(report: dict, n: int) -> dict:
     return prior
 
 
-def resume_output(adapter, report: dict, n: int) -> dict:
-    """Reprend à l'étape n depuis le seul compte rendu et retourne la sortie fusionnée complète."""
-    info = {"seed": report["seed"], "model": report["model"],
+def resume_output(adapter, report: dict, n: int, extra: dict | None = None) -> dict:
+    """Reprend à l'étape n depuis le seul compte rendu et retourne la sortie fusionnée complète.
+    `extra` : informations d'environnement des adaptateurs réels (texte du contexte, dossiers)."""
+    info = {**(extra or {}), "seed": report["seed"], "model": report["model"],
             "prompt_tokens": report["context"]["tokens"],
             "context_limit": report["declared_context_limit"]}
     prior = prior_outputs(report, n)

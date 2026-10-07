@@ -14,6 +14,7 @@ from __future__ import annotations
 import random
 
 from .budget import CHARS_PER_TOKEN, STEP_NAMES, est_tokens
+from .live import LlamaCppAdapter, ManualAdapter, OllamaAdapter
 from .schema import TAGS
 from .trace import canonical_json
 
@@ -140,5 +141,13 @@ class BrokenText(MockAdapter):
     defect = "texte"
 
 
-ADAPTERS = {c.kind: c for c in (Honest, Optimistic, Verbose, BrokenField, BrokenTag, BrokenText)}
+ADAPTERS = {c.kind: c for c in (Honest, Optimistic, Verbose, BrokenField, BrokenTag, BrokenText,
+                                OllamaAdapter, LlamaCppAdapter, ManualAdapter)}
+
+
+def build(entry: dict):
+    """Instancie l'adaptateur d'une entrée {name, adapter, context_limit[, params]}."""
+    return ADAPTERS[entry["adapter"]](entry["context_limit"], **entry.get("params", {}))
+
+
 assert all(t in TAGS for t in CLAIM_TAGS)  # cohérence avec schema.TAGS

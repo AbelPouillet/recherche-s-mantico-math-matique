@@ -1,0 +1,28 @@
+{
+    "harness":  "embedbabel-bench-0.4.0",
+    "models":  [
+                   {
+                       "params":  {
+                                      "ngl":  99,
+                                      "gguf":  "C:/Users/Pouillet/.ollama/models/blobs/sha256-f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d"
+                                  },
+                       "name":  "qwen3.8-27b-llamacpp",
+                       "context_limit":  32768,
+                       "adapter":  "llamacpp"
+                   },
+                   {
+                       "params":  {
+                                      "ngl":  99,
+                                      "gguf":  "C:/Users/Pouillet/.ollama/models/blobs/sha256-aaeb640f98a892980ef54876024293cc8d6987a86523aa1b947ffa9274ef800a"
+                                  },
+                       "name":  "ornith-1.5-35b-llamacpp",
+                       "context_limit":  32768,
+                       "adapter":  "llamacpp"
+                   },
+                   {
+                       "name":  "deepseek-web",
+                       "context_limit":  32768,
+                       "adapter":  "manuel"
+                   }
+               ]
+}
