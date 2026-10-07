@@ -1,5 +1,5 @@
 {
-  "harness": "embedbabel-bench-0.2.0",
+  "harness": "embedbabel-bench-1.0.0",
   "models": [
     {"name": "honnete", "adapter": "honnete", "context_limit": 12000},
     {"name": "optimiste", "adapter": "optimiste", "context_limit": 12000},

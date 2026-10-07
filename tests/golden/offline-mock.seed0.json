@@ -1,0 +1,39 @@
+{
+  "budget": 3000,
+  "flags": {
+    "bavard": [
+      "bavard",
+      "ecart_budget",
+      "budget_depasse"
+    ],
+    "casse_champ": [
+      "invalide"
+    ],
+    "casse_tag": [
+      "invalide"
+    ],
+    "casse_texte": [
+      "invalide"
+    ],
+    "honnete": [],
+    "optimiste": [
+      "ecart_budget"
+    ]
+  },
+  "harness": "embedbabel-bench-1.0.0",
+  "kept": [
+    "honnete"
+  ],
+  "resumes": {
+    "bavard": true,
+    "casse_champ": true,
+    "casse_tag": true,
+    "casse_texte": true,
+    "honnete": true,
+    "optimiste": true
+  },
+  "seed": 0,
+  "task": "v2-complet",
+  "trace_sha256": "5dea2d44c8f9b2254128777e3db92d529b42cc150826270d1f45484aa071a1de",
+  "verdict": "opinion agrégée : NO-GO"
+}

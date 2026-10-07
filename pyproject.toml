@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embedbabel"
+# La version du paquet suit celle du harnais courant (voir bench/harnesses/CHANGELOG.md).
+version = "0.4.0"
+description = "EmbedBabel \u2014 banc de recherche : harnais de bench versionn\u00e9, graphe phon\u00e9tico-g\u00e9matrique, visualisation circulaire"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+dependencies = [
+    "numpy>=1.26,<3",
+    "matplotlib>=3.8,<4",
+    "Pillow>=10.0,<13",
+    "PyYAML>=6.0,<7",
+    "neo4j>=5.0,<7",
+    "qdrant-client>=1.19,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<10"]
+
+[tool.setuptools]
+packages = ["bench", "embedbabel"]
+
+[tool.setuptools.package-data]
+bench = [
+    "definitions/*.json",
+    "harnesses/*/*/*.json",
+    "harnesses/*/*/*.md",
+    "harnesses/*.md",
+    "models/*.json",
+    "prompts/*.md",
+    "registry/*.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"

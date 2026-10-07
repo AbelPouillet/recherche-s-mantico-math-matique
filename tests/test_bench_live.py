@@ -66,8 +66,9 @@ def test_ollama_request_is_bounded_and_replayed_from_cache(tmp_path, monkeypatch
     adapter = build(ollama_entry())
     info = {**INFO, "cache_dir": str(tmp_path / "cache")}
     first = adapter.step(1, {}, info)
-    again = build(ollama_entry()).step(1, {}, info)
-    assert first == again and len(fake.calls) == 1
+    replay = build(ollama_entry())
+    assert replay.step(1, {}, info) == first and len(fake.calls) == 1
+    assert replay.usage[0]["cached"] is True, "une réponse rejouée doit être marquée comme telle"
     req = fake.calls[0]
     assert req["model"] == "tag:1b" and req["think"] is False and req["format"] == "json"
     assert req["options"] == {"num_ctx": 20000, "temperature": 0, "seed": 1, "num_predict": BUDGET}
@@ -93,6 +94,46 @@ def test_full_run_with_simulated_ollama_is_valid_and_measures_reproducibility(tm
     usage = [e for e in r["journal"] if e["event"] == "live_usage"]
     assert len(usage) == 1 and len(usage[0]["usage"]) == 3
     assert (tmp_path / "o" / "cache").is_dir()
+    # la télémétrie réelle est publiée dans report.json (avant : seulement dans le journal)
+    tel = r["telemetry"]["o"]
+    assert tel["measured"] is True and tel["steps_measured"] == 3
+    assert tel["steps_replayed_from_cache"] == 0 and tel["tokens_per_s_median"] == 50.0
+    assert tel["prompt_tokens_real"] == 300 and tel["completion_tokens_real"] == 150
+    # l'écart estimateur/tokenizer est publié : c'est lui qui rendait la garde optimiste
+    assert 0 < tel["estimation_completion_ratio"] < 10
+    assert "usage" in r["budget_reports"]["o"]["steps"][0]
+
+
+def test_budget_used_prefers_the_server_counter_over_chars4(tmp_path, reg, monkeypatch):
+    """`chars/4` sous-estimait la consommation réelle de 12 à 40 % : le drapeau était trop clément."""
+    monkeypatch.setattr(live.urllib.request, "urlopen", FakeOllama())
+    r = run(reg, [ollama_entry()], "v2-minimal", BUDGET, 3, tmp_path / "o")
+    a = r["assessments"]["o"]
+    assert a["budget_used_source"] == "serveur" and a["budget_used"] == 150  # 3 x 50
+    assert r["budget_reports"]["o"]["consumed_total_real"] == 150
+    # un adaptateur réel ne déclare pas de budget : l'écart est publié, pas utilisé pour exclure
+    assert a["declares_budget"] is False and a["included"] is True
+    grid = r["grille_comptes_rendus"]["o"]["grid"]
+    assert "budget_respecte" in grid and "exactitude_budget" not in grid
+    assert grid["budget_respecte"]["pass"] is True
+
+
+def test_a_run_served_entirely_by_cache_is_flagged_as_replayed(tmp_path, reg, monkeypatch):
+    """Un run rejoué ne doit pas pouvoir passer pour une campagne de mesure."""
+    fake = FakeOllama()
+    monkeypatch.setattr(live.urllib.request, "urlopen", fake)
+    out = tmp_path / "o"
+    fresh = run(reg, [ollama_entry()], "v2-minimal", BUDGET, 3, out)
+    assert fresh["telemetry"]["o"]["steps_replayed_from_cache"] == 0
+    calls_after_first = len(fake.calls)
+    replayed = run(reg, [ollama_entry()], "v2-minimal", BUDGET, 3, out)
+    # seules les 2 étapes du test de reprise rappellent le modèle (il est fait sans cache, exprès)
+    assert len(fake.calls) == calls_after_first + 2, "les 3 étapes devaient être servies par le cache"
+    tel = replayed["telemetry"]["o"]
+    assert tel["steps_replayed_from_cache"] == 3 and tel["measured"] is False
+    assert replayed["assessments"]["o"]["replayed_from_cache"] is True
+    # un rejeu ne change pas les drapeaux : il est signalé, pas pénalisé
+    assert replayed["assessments"]["o"]["flags"] == fresh["assessments"]["o"]["flags"]
 
 
 def test_non_json_answer_is_rejected_with_its_reason(tmp_path, reg, monkeypatch):
@@ -130,10 +171,19 @@ def test_models_file_requires_ollama_model_tag_and_safe_name(tmp_path):
 
 
 class FakeLlamaServer(FakeOllama):
-    """Réponse au format OpenAI-compatible de llama-server."""
+    """Réponse au format OpenAI-compatible de llama-server, plus `POST /tokenize`."""
+
+    def __init__(self, reply=None, real_tokens=None):
+        super().__init__(reply)
+        self.tokenize: list[dict] = []
+        self.real_tokens = real_tokens  # None : compte déduit du texte, sinon compte imposé
 
     def __call__(self, req, timeout=None):
         payload = json.loads(req.data.decode("utf-8"))
+        if req.full_url.endswith("/tokenize"):
+            self.tokenize.append(payload)
+            n = self.real_tokens if self.real_tokens is not None else max(1, len(payload["content"]) // 4)
+            return io.BytesIO(json.dumps({"tokens": list(range(n))}).encode("utf-8"))
         self.calls.append(payload)
         k = int(payload["messages"][1]["content"].split("/")[0].rsplit(" ", 1)[1])
         body = {"choices": [{"message": {"content": self._honest(k)}, "finish_reason": "stop"}],
@@ -179,10 +229,42 @@ def test_llamacpp_missing_gguf_stops_before_launching_anything(tmp_path):
 
 def test_closing_is_called_after_each_model_and_resume_test(tmp_path, reg, monkeypatch):
     closed = []
+    fake = FakeLlamaServer()
     monkeypatch.setattr(live.LlamaCppAdapter, "close", lambda self: closed.append(1))
-    monkeypatch.setattr(live.urllib.request, "urlopen", FakeLlamaServer())
+    monkeypatch.setattr(live.urllib.request, "urlopen", fake)
     r = run(reg, [llama_entry()], "v2-complet", BUDGET, 3, tmp_path / "c")
     assert r["assessments"]["l"]["valid"] and len(closed) == 2  # EXECUTER + test de reprise
+    # le contexte est recompté une seule fois, par le tokenizer du serveur
+    assert len(fake.tokenize) == 1 and fake.tokenize[0]["add_special"] is False
+    tel = r["telemetry"]["l"]
+    assert tel["context_tokens_real_source"] == "server /tokenize"
+    assert tel["context_tokens_real"] > 1000 and tel["estimation_context_ratio"] > 0.9
+
+
+def test_real_tokenizer_refuses_a_context_that_chars4_would_have_let_through(tmp_path, reg, monkeypatch):
+    """Le correctif de la garde : `chars/4` sous-compte, donc la limite doit être vérifiée au réel.
+
+    Contexte annoncé ~9 800 tokens par l'estimateur, limite 20 000 et budget 3 000 (donc 17 000
+    disponibles) : l'estimateur laisse passer, le tokenizer réel dit 18 000 et le modèle ne doit
+    pas être exécuté du tout.
+    """
+    fake = FakeLlamaServer(real_tokens=18000)
+    monkeypatch.setattr(live.urllib.request, "urlopen", fake)
+    r = run(reg, [llama_entry()], "v2-complet", BUDGET, 3, tmp_path / "c")
+    assert r["assessments"]["l"]["flags"] == ["contexte_refuse"]
+    assert "l" not in r["budget_reports"] and r["collective"]["verdict"] == "aucun modèle retenu"
+    assert fake.calls == [], "aucune requête de génération ne doit partir si le contexte réel déborde"
+    reason = [e for e in r["journal"] if e["event"] == "model_not_run"]
+    assert len(reason) == 1 and reason[0]["reason"] == "contexte réel hors limite"
+    assert reason[0]["tokens_real"] == 18000 and reason[0]["available"] == 17000
+
+
+def test_tokenize_off_keeps_the_old_estimator_only_behaviour(tmp_path, reg, monkeypatch):
+    fake = FakeLlamaServer(real_tokens=18000)
+    monkeypatch.setattr(live.urllib.request, "urlopen", fake)
+    r = run(reg, [llama_entry()], "v2-complet", BUDGET, 3, tmp_path / "c", tokenize="off")
+    # 3 étapes + 2 pour le test de reprise (fait sans cache) : tout passe par l'ancien chemin
+    assert fake.tokenize == [] and len(fake.calls) == 5 and "l" in r["budget_reports"]
 
 
 def test_models_file_requires_llamacpp_gguf_or_host(tmp_path):

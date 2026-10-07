@@ -76,6 +76,9 @@ class MockAdapter:
     pad = False            # bavard : gonfle la dernière étape au-delà de la limite de contexte
     plan_divisor = 1       # optimiste : budget annoncé = vrai coût // 3
     defect: str | None = None
+    #: Les adaptateurs factices **annoncent** un budget (`plan()`), donc l'écart au budget annoncé
+    #: est un critère qui a un sens pour eux. Un adaptateur réel ne déclare rien : voir `live.py`.
+    declares_budget = True
 
     def __init__(self, context_limit: int) -> None:
         self.context_limit = context_limit
