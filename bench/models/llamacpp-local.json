@@ -1,5 +1,5 @@
 {
-    "harness":  "embedbabel-bench-0.4.0",
+    "harness":  "embedbabel-bench-1.0.0",
     "models":  [
                    {
                        "params":  {

@@ -1,10 +1,16 @@
-"""Registre versionné des harnais de bench.
+"""Registre versionné des harnais de bench — **entrée en lecture seule pour le lanceur**.
 
 Les définitions sources sont dans bench/definitions/*.def.json ; `register` les
 inscrit dans bench/registry/<name>-<version>.json :
   {"definition": {...}, "content_hash": "...", "runs": [{...}]}
 Le hash couvre la définition ET le contenu du prompt référencé : modifier l'un
 ou l'autre sans changer `version` est refusé (pas d'écrasement silencieux).
+
+`runs` est un **historique figé** des exécutions antérieures à l'introduction du registre
+d'exécution (`bench/ledger.py`). Le lanceur n'écrit plus ici : un run dépose son
+enregistrement dans son propre dossier de sortie, sinon un simple `python -m bench.run`
+salirait un fichier suivi par git et aucune CI ne pourrait exiger un arbre propre.
+Seul `--register` écrit dans ce dossier.
 """
 from __future__ import annotations
 
@@ -77,13 +83,6 @@ def register(defn: dict, registry_dir: Path | None = None, root: Path = ROOT) ->
 def verify(hid: str, registry_dir: Path | None = None, root: Path = ROOT) -> bool:
     entry = load(hid, registry_dir)
     return compute_hash(entry["definition"], root) == entry["content_hash"]
-
-
-def record_run(hid: str, summary: dict, registry_dir: Path | None = None) -> None:
-    entry = load(hid, registry_dir)
-    if summary not in entry["runs"]:  # idempotent : relancer à l'identique n'ajoute rien
-        entry["runs"].append(summary)
-        _write(_path(hid, registry_dir), entry)
 
 
 def list_harnesses(registry_dir: Path | None = None) -> list[str]:

@@ -1,0 +1,166 @@
+[
+  {
+    "name": "conversation vide",
+    "history": [],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "point final toléré",
+    "history": [],
+    "message": "go.",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "point d'exclamation et espaces tolérés",
+    "history": [],
+    "message": "  go!  ",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "casse ignorée",
+    "history": [],
+    "message": "GO",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "message ordinaire",
+    "history": [],
+    "message": "bonjour",
+    "action": "ignore",
+    "reason": "pas le déclencheur"
+  },
+  {
+    "name": "déclencheur noyé dans une phrase",
+    "history": [],
+    "message": "je vais go maintenant",
+    "action": "ignore",
+    "reason": "pas le déclencheur"
+  },
+  {
+    "name": "espaces internes refusés",
+    "history": [],
+    "message": "g o",
+    "action": "ignore",
+    "reason": "pas le déclencheur"
+  },
+  {
+    "name": "un tour utilisateur antérieur",
+    "history": [{ "role": "user", "content": "bonjour" }],
+    "message": "go",
+    "action": "ask_new_conversation",
+    "reason": "1 message(s) précédent(s)"
+  },
+  {
+    "name": "une réponse antérieure",
+    "history": [{ "role": "assistant", "content": "salut" }],
+    "message": "go",
+    "action": "ask_new_conversation",
+    "reason": "1 message(s) précédent(s)"
+  },
+  {
+    "name": "un appel d'outil antérieur",
+    "history": [{ "role": "tool", "content": "ok" }],
+    "message": "go",
+    "action": "ask_new_conversation",
+    "reason": "1 message(s) précédent(s)"
+  },
+  {
+    "name": "un message système ne pollue pas",
+    "history": [{ "role": "system", "content": "tu es un assistant" }],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "seul le message système, quel que soit le nombre",
+    "history": [
+      { "role": "system", "content": "tu es un assistant" },
+      { "role": "system", "content": "réponds en français" }
+    ],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "une entrée sans rôle n'est pas un tour de conversation",
+    "history": [{ "content": "orphelin" }],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "sous le seuil de messages",
+    "rules": { "max_prior_messages": 3, "max_prior_chars": 1000 },
+    "history": [
+      { "role": "user", "content": "a" },
+      { "role": "assistant", "content": "b" }
+    ],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "au-dessus du seuil de messages",
+    "rules": { "max_prior_messages": 1, "max_prior_chars": 1000 },
+    "history": [
+      { "role": "user", "content": "a" },
+      { "role": "assistant", "content": "b" }
+    ],
+    "message": "go",
+    "action": "ask_new_conversation",
+    "reason": "2 message(s) précédent(s)"
+  },
+  {
+    "name": "seuil de caractères atteint",
+    "rules": { "max_prior_messages": 5, "max_prior_chars": 10 },
+    "history": [{ "role": "user", "content": "0123456789ABCDEF" }],
+    "message": "go",
+    "action": "ask_new_conversation",
+    "reason": "16 caractères de contexte précédent"
+  },
+  {
+    "name": "seuil de caractères exactement atteint ne pollue pas",
+    "rules": { "max_prior_messages": 5, "max_prior_chars": 10 },
+    "history": [{ "role": "user", "content": "0123456789" }],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "déclencheur personnalisé",
+    "rules": { "keyword": "bench" },
+    "history": [],
+    "message": "bench",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "l'ancien déclencheur ne déclenche plus",
+    "rules": { "keyword": "bench" },
+    "history": [],
+    "message": "go",
+    "action": "ignore",
+    "reason": "pas le déclencheur"
+  },
+  {
+    "name": "caractères spéciaux du mot-clé traités littéralement",
+    "rules": { "keyword": "go+" },
+    "history": [],
+    "message": "go+",
+    "action": "run_bench",
+    "reason": "contexte propre"
+  },
+  {
+    "name": "garde désactivée laisse passer malgré un historique",
+    "rules": { "enabled": false },
+    "history": [{ "role": "user", "content": "bonjour" }],
+    "message": "go",
+    "action": "run_bench",
+    "reason": "garde désactivée"
+  }
+]

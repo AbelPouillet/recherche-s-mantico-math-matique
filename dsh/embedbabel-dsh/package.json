@@ -1,0 +1,16 @@
+{
+  "name": "embedbabel-dsh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Garde anti-pollution et injection du prompt de bench EmbedBabel dans DeepSeek Harness",
+  "main": "lib/index.js",
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "scripts": {
+    "test": "node --test test/guard.test.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

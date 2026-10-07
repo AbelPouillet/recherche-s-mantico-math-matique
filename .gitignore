@@ -13,3 +13,11 @@ bench/runs/
 .env
 # Orchestration locale (moniteur thermique, etc.)
 .specify/
+# Environnements virtuels locaux (jamais dans git : reconstruits par `pip install -e .[dev]`)
+.venv/
+venv/
+dhbench/
+# Métadonnées d'installation éditable
+*.egg-info/
+# Artefacts de CI / de campagne (rapports, journaux serveur, relevés nvidia-smi)
+artifacts/

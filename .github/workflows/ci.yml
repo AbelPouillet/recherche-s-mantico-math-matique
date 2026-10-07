@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  # Filet contre la pourriture des dépendances. L'installation n'est pas verrouillée
+  # (`pip install -e ".[dev]"` résout à neuf à chaque exécution) : une nouvelle version mineure de
+  # numpy, PyYAML, neo4j ou pytest peut casser `main` sans qu'aucun commit n'ait changé. C'est
+  # exactement le mode d'échec qui laissait quatre modules de test non collectables avant P0.
+  schedule:
+    - cron: "17 6 * * 1"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: tests + hermétique (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # le gate d'herméticité compare `git status` avant/après : il faut un checkout propre
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Installer le paquet et les dépendances de test
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # Un seul entrypoint, identique en local : `python scripts/ci.py`
+      # Il lance la suite pytest puis un run hors ligne, et vérifie qu'aucun fichier suivi par git
+      # n'a été modifié par ce run.
+      - name: Suite de tests + gate d'herméticité
+        run: python scripts/ci.py
+
+      - name: Journaux de la suite en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-logs-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            .pytest_cache/
+            artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

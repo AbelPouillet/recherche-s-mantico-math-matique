@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embedbabel"
+# La version du paquet suit celle du harnais courant (voir bench/harnesses/CHANGELOG.md).
+version = "0.4.0"
+description = "EmbedBabel — banc de recherche : harnais de bench versionné, graphe phonético-gématrique, visualisation circulaire"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+dependencies = [
+    "numpy>=1.26,<3",
+    "matplotlib>=3.8,<4",
+    "Pillow>=10.0,<13",
+    "PyYAML>=6.0,<7",
+    "neo4j>=5.0,<7",
+    "qdrant-client>=1.19,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<10"]
+#: Mesure des ressources locales : `psutil` améliore la lecture de la RAM et de la RSS du serveur.
+#: Sans lui, `bench/perf/resources.py` retombe sur `GlobalMemoryStatusEx` (Windows) ou /proc/meminfo.
+perf = ["psutil>=5.9"]
+#: Chiffrage des tokens : les journaux de session DSH sont des frames zstd **concaténées**, que la
+#: bibliothèque standard de Python 3.11 ne sait pas lire (elle s'arrête à la première frame).
+tokens = ["zstandard>=0.22"]
+
+[tool.setuptools]
+packages = ["bench", "bench.perf", "bench.selfimprove", "embedbabel"]
+
+[tool.setuptools.package-data]
+bench = [
+    "definitions/*.json",
+    "harnesses/*/*/*.json",
+    "harnesses/*/*/*.md",
+    "harnesses/*.md",
+    "models/*.json",
+    "perf/*.json",
+    "prompts/*.md",
+    "registry/*.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"

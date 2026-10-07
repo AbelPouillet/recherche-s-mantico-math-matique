@@ -1,5 +1,5 @@
 {
-  "harness": "embedbabel-bench-0.3.0",
+  "harness": "embedbabel-bench-1.0.0",
   "models": [
     {"name": "qwen3.8-27b", "adapter": "ollama", "context_limit": 32768, "params": {"model": "qwen3.8:27b"}},
     {"name": "ornith-1.5-35b", "adapter": "ollama", "context_limit": 32768, "params": {"model": "ornith-1.5:35b"}},

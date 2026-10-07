@@ -1,0 +1,28 @@
+{
+  "_comment": "Matrice de mesure de la pipeline. Les axes qui exigent un redémarrage du serveur ne s'appliquent qu'aux moteurs 'llamacpp' sans 'host'. Pour Strata (serveur déjà lancé), utiliser la clé 'host' : les axes sont alors refusés et consignés dans unsupported_axes.",
+  "engines": [
+    {
+      "id": "llama-server-9870",
+      "kind": "llamacpp",
+      "params": {
+        "gguf": "C:/Users/Pouillet/.ollama/models/blobs/sha256-f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d",
+        "server": "llama-server",
+        "ngl": 99
+      }
+    },
+    {
+      "id": "strata-8080",
+      "kind": "host",
+      "params": { "host": "http://127.0.0.1:8080" }
+    }
+  ],
+  "axes": {
+    "context": [8192, 32768],
+    "kv_type": ["f16", "q8_0"],
+    "concurrency": [1, 2]
+  },
+  "workloads": ["decode-512", "prefill-4k"],
+  "repetitions": 5,
+  "warmups": 1,
+  "seed": 0
+}

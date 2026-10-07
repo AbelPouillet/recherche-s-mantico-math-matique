@@ -3,14 +3,17 @@
 Un paquet obligatoire qui ne tient pas fait refuser tout le contexte. Un paquet
 optionnel est tronqué proprement (à une fin de ligne) ou refusé s'il ne reste plus
 de place ; ce qui reste hors contexte est consigné avec la manière de le retrouver.
-La garde contre la pollution de l'historique réutilise celle du plugin DeepSeek
-(testée par integrations/deepseek-harness-labsia/tests/test_context_guard.py).
+
+La garde contre la pollution de l'historique vit dans `bench/guard.py` — implémentation canonique,
+partagée avec le plugin DSH par un jeu de cas commun. Elle n'est plus lue depuis
+`plugins/deepseek-r1-*/adapter.py`, qui n'était pas un plugin DSH.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
 from .budget import CHARS_PER_TOKEN, est_tokens
+from .guard import guard_history as _guard_history
 
 
 def load_packets(spec: list[dict], root: Path) -> list[dict]:
@@ -66,10 +69,10 @@ def build_context(packets: list[dict], limit: int, reserve: int = 0) -> tuple[di
     return ctx, "\n\n".join(parts)
 
 
-def guard_history(plugin, history: list[dict]) -> dict:
-    """Pollution de l'historique : délègue au plugin installé (aucune logique dupliquée)."""
-    if plugin is None:
-        return {"ok": True, "plugin": None, "action": "no_plugin", "reason": "aucun plugin installé"}
-    name, mod = plugin
-    d = mod.on_message(history, "go")
-    return {"ok": d.action == "run_bench", "plugin": name, "action": d.action, "reason": d.reason}
+def guard_history(history: list[dict], rules: dict | None = None) -> dict:
+    """Pollution de l'historique : délègue à `bench/guard.py` (aucune logique dupliquée).
+
+    Conservé ici pour ne pas casser les appelants existants ; l'implémentation canonique est dans
+    `bench.guard`.
+    """
+    return _guard_history(history, rules)

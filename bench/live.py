@@ -74,6 +74,10 @@ def parse_step(text: str) -> tuple[dict, bool]:
 class LiveAdapter:
     kind = "live"
     deterministic = False
+    #: Un modèle réel **n'annonce pas** de budget : `plan()` renvoie une répartition neutre
+    #: (`budget / 3`) décidée par le harnais. L'écart à ce chiffre ne mesure donc pas l'honnêteté du
+    #: modèle et ne doit pas servir à l'exclure du consensus (il reste publié comme métrique).
+    declares_budget = False
 
     def __init__(self, context_limit: int, **params) -> None:
         self.context_limit = context_limit
@@ -82,6 +86,15 @@ class LiveAdapter:
 
     def declare(self) -> dict:
         return {"context_limit": self.context_limit}
+
+    def count_tokens(self, text: str, info: dict) -> tuple[int, str] | None:
+        """Comptage exact du texte par le serveur, avant exécution.
+
+        Retourne `(tokens, source)` ou `None` si le moteur n'expose pas de tokenizer. Sert à
+        vérifier la garde de contexte avec le **vrai** tokenizer au lieu de `chars/4`, qui
+        sous-compte (mesuré : ~10 % sur le contexte, jusqu'à 35 % sur le prompt complet).
+        """
+        return None
 
     def plan(self, info: dict) -> list[int]:
         """Estimation neutre : le budget réparti également sur les étapes."""
@@ -126,6 +139,22 @@ class LiveAdapter:
             raise SystemExit(f"{label} : {url} a répondu {exc.code} {exc.read().decode('utf-8', 'replace')[:300]}")
         except OSError as exc:
             raise SystemExit(f"{label} : serveur injoignable sur {url} ({exc})")
+
+    @staticmethod
+    def _post_safe(url: str, payload: dict) -> dict | None:
+        """Comme `_post`, mais retourne `None` au lieu d'interrompre le harnais.
+
+        Réservé aux **sondes facultatives** (comptage de tokens) : leur indisponibilité doit
+        dégrader proprement vers l'estimateur, jamais tuer une campagne.
+        """
+        req = urllib.request.Request(url, json.dumps(payload).encode("utf-8"),
+                                     {"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.HTTPError, OSError, ValueError):
+            return None
+        return body if isinstance(body, dict) else None
 
     def step(self, k: int, prior: dict, info: dict) -> dict:
         text, usage = self._complete(k, prior, info)
@@ -176,6 +205,24 @@ class LlamaCppAdapter(LiveAdapter):
         self._proc: subprocess.Popen | None = None
         self._base: str | None = params.get("host")
         self._log = None
+        self._tok_cache: dict[str, tuple[int, str]] = {}
+
+    def count_tokens(self, text: str, info: dict) -> tuple[int, str] | None:
+        """Comptage réel via `POST /tokenize` de `llama-server` (cache par hash de texte).
+
+        Retourne `None` si l'endpoint est absent (par ex. un moteur qui n'expose pas de tokenizer) :
+        le harnais retombe alors sur `chars/4` et le consigne.
+        """
+        key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        if key in self._tok_cache:
+            return self._tok_cache[key]
+        body = self._post_safe(self._start(info) + "/tokenize",
+                               {"content": text, "add_special": False})
+        if body is None or not isinstance(body.get("tokens"), list):
+            return None
+        result = (len(body["tokens"]), "server /tokenize")
+        self._tok_cache[key] = result
+        return result
 
     def command(self, port: int) -> list[str]:
         exe = self.params.get("server") or shutil.which("llama-server")

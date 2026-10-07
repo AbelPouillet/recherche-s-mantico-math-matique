@@ -4,7 +4,6 @@ import copy
 from bench import budget
 from bench.adapters import Honest, Optimistic, Verbose
 from bench.context import build_context, guard_history
-from bench.run import load_plugin
 
 
 def packet(pid, text, required=False):
@@ -52,13 +51,18 @@ def test_reserve_leaves_room_for_the_answer():
     assert ctx["ok"] is False  # 100 tokens de paquet > 50 disponibles
 
 
-def test_history_guard_delegates_to_the_plugin():
-    plugin = load_plugin()
-    assert plugin is not None
-    assert guard_history(plugin, [])["ok"] is True
-    polluted = guard_history(plugin, [{"role": "user", "content": "salut"}])
+def test_history_guard_uses_the_canonical_module():
+    """La garde vit dans `bench/guard.py` : plus aucun import d'un pseudo-plugin par glob."""
+    assert guard_history([])["ok"] is True
+    polluted = guard_history([{"role": "user", "content": "salut"}])
     assert polluted["ok"] is False and polluted["action"] == "ask_new_conversation"
-    assert guard_history(None, [])["action"] == "no_plugin"
+    # les règles d'un harnais peuvent surcharger les seuils (les deux, sinon le seuil de
+    # caractères reste à 0 et un seul tour suffit à polluer)
+    relaxed = guard_history([{"role": "user", "content": "salut"}],
+                            {"max_prior_messages": 5, "max_prior_chars": 1000})
+    assert relaxed["ok"] is True and relaxed["reason"] == "contexte propre"
+    assert guard_history([{"role": "user", "content": "x" * 2001}],
+                         {"max_prior_messages": 5, "max_prior_chars": 2000})["ok"] is False
 
 
 INFO = {"seed": 3, "model": "m", "prompt_tokens": 200, "context_limit": 12000}
