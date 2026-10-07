@@ -214,13 +214,50 @@ def test_unknown_engine_kind_is_refused():
 
 
 def test_command_translates_axes_and_parallelism_to_server_options():
-    cell = matrix.Cell("srv", "llamacpp", {"gguf": "m.gguf", "ngl": 99, "extra_args": ["--no-warmup"]},
+    """`server` est fourni explicitement : sans lui, le test dépendrait du PATH de la machine.
+
+    C'est exactement ce qui a fait échouer la CI au premier push : ce test passait sur un poste où
+    `llama-server` est installé, et levait SystemExit partout ailleurs.
+    """
+    cell = matrix.Cell("srv", "llamacpp",
+                       {"gguf": "m.gguf", "server": "llama-server", "ngl": 99,
+                        "extra_args": ["--no-warmup"]},
                        {"context": 32768, "kv_type": "q8_0", "concurrency": 4})
     cmd = cell.command(5555)
+    assert cmd[0] == "llama-server"
     assert cmd[cmd.index("-c") + 1] == "32768"
     assert cmd[cmd.index("-ctk") + 1] == "q8_0" and cmd[cmd.index("-ctv") + 1] == "q8_0"
     assert cmd[cmd.index("-np") + 1] == "4", "la concurrence doit ouvrir les slots du serveur"
     assert cmd[cmd.index("--port") + 1] == "5555" and cmd[-1] == "--no-warmup"
+
+
+def test_command_says_clearly_when_no_server_binary_is_available(monkeypatch):
+    """Le comportement attendu quand `llama-server` n'est nulle part — épinglé sans dépendre du poste."""
+    monkeypatch.setattr(matrix.shutil, "which", lambda name: None)
+    cell = matrix.Cell("srv", "llamacpp", {"gguf": "m.gguf"}, {})
+    with pytest.raises(SystemExit, match="llama-server introuvable"):
+        cell.command(5555)
+    assert matrix.Cell("srv", "llamacpp", {"gguf": "m.gguf", "server": "/opt/llama-server"}, {}) \
+        .command(5555)[0] == "/opt/llama-server"
+
+
+def test_no_test_relies_on_llama_server_being_installed(monkeypatch, tmp_path):
+    """Garde-fou : la suite doit rester hermétique au PATH de la machine.
+
+    `Cell.command()` et `run_matrix` consultent `shutil.which("llama-server")`. Si un test oublie de
+    fournir `params.server`, il ne passe que sur un poste équipé — et la CI est rouge sans que rien
+    ne le signale en local.
+    """
+    monkeypatch.setattr(matrix.shutil, "which", lambda name: None)
+    for cell in matrix.expand(CONFIG):
+        if cell.launches_server:
+            assert cell.params.get("server"), f"{cell.id} dépend du PATH pour trouver llama-server"
+            cell.command(0)  # ne doit pas lever
+    dry = matrix.run_matrix(CONFIG, tmp_path, dry_run=True)
+    assert dry["plan"], "le plan doit lister les cellules"
+    for entry in dry["plan"]:
+        if entry["launches_server"]:  # un serveur déjà lancé n'a légitimement aucune commande
+            assert entry["command"], f"{entry['cell']} sans ligne de commande"
 
 
 def test_a_hosted_server_cannot_be_reconfigured_and_says_so():
