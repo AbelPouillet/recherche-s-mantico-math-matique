@@ -132,6 +132,20 @@ Le journal d'orchestration est donc local, invisible en CI, et non partagé.
 **Impact.** Aucun verrou de non-régression. Les 4 modules de test cassés le resteraient
 indéfiniment sans que personne ne le sache.
 
+**Nuance ajoutée après coup (vérifiée via l'API Actions).** « Aucune CI » est exact pour les branches
+réellement utilisées — `main` et `merge` ne contiennent aucun `.github/` — mais **pas pour le dépôt** :
+la branche non fusionnée `origin/copilot/copilotajouter-section-2sexies` porte un
+`.github/workflows/ci.yml` (commits `b3bc3c9` « Add continuous versus vision benchmark » et `bd62343`
+« Restrict CI token permissions »). Ce workflow **a tourné 3 fois et a échoué 3 fois**, et n'a jamais
+été fusionné. C'est plus instructif que son absence : une CI existait, son échec a été observé, et
+rien n'en a été tiré. Défauts structurels lisibles dans le fichier : elle ne tournait que sur
+`ubuntu-latest` (donc la classe de bug Windows/CRLF — celle corrigée par le commit `c461951` — ne
+pouvait pas être détectée), et son étape de test de fumée appelait
+`experiments.continuous_vs_vision.run_experiment`, module absent de `main` et de `merge`, donc une
+étape qui ne pouvait réussir que sur cette branche-là. *Ce que je n'ai pas pu établir* : l'étape
+exacte qui a échoué — l'API `jobs` de ces exécutions archivées ne rend rien et les journaux exigent
+une authentification que je n'ai pas utilisée.
+
 **Correction.** Voir P0.
 
 ### C2 — Le harnais note des rapports, il ne mesure pas l'inférence. *Sévérité : structurelle*
@@ -893,6 +907,36 @@ les autres applications n'est pas un gain.
 65 859 620** · écriture 0 → **total 67 084 823, dont 98,17 % de lecture de cache.** Aucun coût
 monétaire : le harnais ne stocke pas de table de prix, et un chiffre en euros serait une supposition
 présentée comme un fait.
+
+### Incident du premier push : la CI était rouge, et pour une raison que je n'avais pas vue
+
+Le premier push des six commits a produit un run **en échec sur les quatre jobs** (ubuntu et windows ×
+Python 3.11 et 3.13), tous à la même étape, `python scripts/ci.py`.
+
+**Pourquoi mes vérifications locales ne l'avaient pas vu.** J'avais bien vérifié chaque commit dans un
+worktree isolé — mais toujours **sur ce poste**. Or `Cell.command()` de `bench/perf/matrix.py` résout
+le binaire par `shutil.which("llama-server")` quand `params.server` n'est pas fourni, et le test
+`test_command_translates_axes_and_parallelism_to_server_options` ne le fournissait pas. Ce test ne
+passait donc **que sur une machine où `llama-server` est installé** — la mienne. Ailleurs :
+`SystemExit: llama-server introuvable`.
+
+C'est exactement le défaut que cet audit reproche au harnais (des tests dont le résultat dépend de
+l'environnement), reproduit dans mes propres tests. Et la CI a fait son travail : elle l'a attrapé au
+premier essai, ce qui est la meilleure démonstration possible que P0 sert à quelque chose.
+
+**Comment la cause a été trouvée** — pas par déduction : reproduction du job dans un conteneur
+`python:3.11-bookworm`, avec `node` et `git` installés pour coller au runner, et installation des
+seules dépendances `.[dev]` comme le fait la CI. La sortie du conteneur a nommé le test et l'exception.
+La même commande, après correction, rend `PYTEST_EXIT=0` et une CI verte.
+
+**Correction** : `params.server` fourni explicitement dans le test, plus deux tests de garde —
+`test_command_says_clearly_when_no_server_binary_is_available` (le comportement attendu quand le
+binaire est absent, épinglé sans dépendre du poste) et
+`test_no_test_relies_on_llama_server_being_installed` (qui échoue si une cellule du plan dépend du
+PATH pour trouver `llama-server`).
+
+**Leçon retenue** : une suite verte sur le poste de développement ne dit rien de la CI. La
+reproduction conteneurisée, elle, dit quelque chose — et elle ne coûte qu'une commande.
 
 ### Ce qui n'est pas encore fait
 
